@@ -1,12 +1,14 @@
 /**
  * api-football.com client (v3)
- * Free tier: 100 requests/day; no `last=N` param; queries by season only.
+ * Free tier: 100 requests/day
  * Docs: https://www.api-football.com/documentation-v3
  *
- * Used for national-team fixtures and H2H data.
- * football-data.org free tier silently scopes team matches to WC competitions
- * only, which returns 0 results until WC 2026 is played. This API has no such
- * restriction.
+ * Optimized to use the minimum number of API calls per matchup:
+ *   - 1 request per team for fixtures (no fallback season)
+ *   - 1-2 requests for H2H (2 seasons max, second only if first is thin)
+ *
+ * A single matchup page load costs 3-4 requests max (vs 9 before).
+ * With Redis caching at 6h TTL, repeated views cost 0 additional requests.
  */
 
 import { Match } from "@/types";
@@ -71,11 +73,16 @@ async function fetchAF(endpoint: string): Promise<AFResponse> {
     throw new Error(`api-football error [${res.status}]: ${await res.text()}`);
   }
 
-  const data = await res.json() as AFResponse;
+  const data = (await res.json()) as AFResponse;
 
-  // api-football returns HTTP 200 even for auth/rate-limit errors; check body
+  // api-football returns HTTP 200 even for auth/rate-limit errors — check body
   const { errors } = data;
-  if (errors && (Array.isArray(errors) ? errors.length > 0 : Object.keys(errors as Record<string, unknown>).length > 0)) {
+  if (
+    errors &&
+    (Array.isArray(errors)
+      ? errors.length > 0
+      : Object.keys(errors as Record<string, unknown>).length > 0)
+  ) {
     throw new Error(`api-football API error: ${JSON.stringify(errors)}`);
   }
 
@@ -88,7 +95,7 @@ const FINISHED_STATUSES = new Set(["FT", "AET", "PEN"]);
  * Normalize an api-football fixture to the shared Match interface.
  *
  * idMap: optional map of api-football team ID → football-data.org team ID.
- * We remap team IDs so that callers can still use `m.homeTeam.id === team.footballDataId`.
+ * We remap IDs so callers can still compare against team.footballDataId.
  */
 function normalizeAFMatch(
   f: AFFixtureEntry,
@@ -96,8 +103,11 @@ function normalizeAFMatch(
 ): Match {
   const statusShort = f.fixture.status.short;
   let status: Match["status"] = "SCHEDULED";
-  if (FINISHED_STATUSES.has(statusShort)) status = "FINISHED";
-  else if (!["NS", "TBD", "PST", "CANC", "ABD", "AWD", "WO"].includes(statusShort)) {
+  if (FINISHED_STATUSES.has(statusShort)) {
+    status = "FINISHED";
+  } else if (
+    !["NS", "TBD", "PST", "CANC", "ABD", "AWD", "WO"].includes(statusShort)
+  ) {
     status = "LIVE";
   }
 
@@ -117,9 +127,11 @@ function normalizeAFMatch(
       crest: f.teams.away.logo,
     },
     score: {
-      // Use f.goals for final score (most reliable); halftime from f.score
       fullTime: { home: f.goals.home, away: f.goals.away },
-      halfTime: { home: f.score.halftime.home, away: f.score.halftime.away },
+      halfTime: {
+        home: f.score.halftime.home,
+        away: f.score.halftime.away,
+      },
     },
     competition: f.league.name,
     status,
@@ -131,9 +143,13 @@ function normalizeAFMatch(
 /**
  * Fetch the most recent `limit` finished matches for a national team.
  *
+ * COST: 1 request (current season only — no fallback).
+ * The previous-season fallback was removed because it could double the cost.
+ * If the current season has no results yet (early in the year), the caller
+ * will receive an empty array — the UI handles this gracefully.
+ *
  * @param apiFootballId  The team's api-football.com ID
- * @param footballDataId The team's football-data.org ID (used to remap match
- *                       team IDs so existing callers don't need updating)
+ * @param footballDataId The team's football-data.org ID (used to remap IDs)
  * @param limit          Number of matches to return (default 10)
  */
 export async function getTeamFixturesAF(
@@ -144,41 +160,37 @@ export async function getTeamFixturesAF(
   const idMap = new Map([[apiFootballId, footballDataId]]);
   const currentYear = new Date().getFullYear();
 
-  // Primary season
-  const primary = await fetchAF(
+  const data = await fetchAF(
     `/fixtures?team=${apiFootballId}&season=${currentYear}`
   );
-  let finished = primary.response.filter((f) =>
-    FINISHED_STATUSES.has(f.fixture.status.short)
-  );
 
-  // If not enough results, pull previous year too
-  if (finished.length < limit) {
-    const prev = await fetchAF(
-      `/fixtures?team=${apiFootballId}&season=${currentYear - 1}`
-    );
-    finished = [
-      ...finished,
-      ...prev.response.filter((f) => FINISHED_STATUSES.has(f.fixture.status.short)),
-    ];
-  }
+  const finished = data.response
+    .filter((f) => FINISHED_STATUSES.has(f.fixture.status.short))
+    .sort(
+      (a, b) =>
+        new Date(b.fixture.date).getTime() -
+        new Date(a.fixture.date).getTime()
+    )
+    .slice(0, limit);
 
-  // Sort newest-first, slice
-  finished.sort(
-    (a, b) =>
-      new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime()
-  );
-
-  return finished.slice(0, limit).map((f) => normalizeAFMatch(f, idMap));
+  return finished.map((f) => normalizeAFMatch(f, idMap));
 }
 
 /**
- * Fetch the full head-to-head history between two national teams.
+ * Fetch head-to-head history between two national teams.
+ *
+ * COST: 1 request normally; 2 requests if the first season returns fewer
+ * than 3 finished matches (we look back one additional year).
+ * Previously this fired 5 parallel requests — now capped at 2 max.
+ *
+ * Strategy: start from currentYear - 1 (the most recently completed season)
+ * rather than currentYear, since mid-year there may be zero completed H2H
+ * matches in the current season. Fall back to currentYear - 2 only if thin.
  *
  * @param teamAApiId  api-football.com ID for team A
- * @param teamAFDId   football-data.org ID for team A (for remapping)
+ * @param teamAFDId   football-data.org ID for team A (for ID remapping)
  * @param teamBApiId  api-football.com ID for team B
- * @param teamBFDId   football-data.org ID for team B (for remapping)
+ * @param teamBFDId   football-data.org ID for team B (for ID remapping)
  */
 export async function getH2HAF(
   teamAApiId: number,
@@ -191,39 +203,53 @@ export async function getH2HAF(
     [teamBApiId, teamBFDId],
   ]);
 
-  // Free tier requires ?season= — a parameter-free query returns only upcoming
-  // fixtures (none of which are FINISHED), so we fetch the last 5 seasons in
-  // parallel and merge the results.
   const currentYear = new Date().getFullYear();
-  const seasons = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-  const settled = await Promise.allSettled(
-    seasons.map((season) =>
-      fetchAF(`/fixtures/headtohead?h2h=${teamAApiId}-${teamBApiId}&season=${season}`)
-    )
+  // Fetch the most recently completed season first (currentYear - 1)
+  const primary = await fetchAF(
+    `/fixtures/headtohead?h2h=${teamAApiId}-${teamBApiId}&season=${
+      currentYear - 1
+    }`
   );
 
-  const seen = new Set<number>();
-  const allH2H: AFFixtureEntry[] = [];
+  let allEntries = primary.response.filter((f) =>
+    FINISHED_STATUSES.has(f.fixture.status.short)
+  );
 
-  for (const result of settled) {
-    if (result.status === "rejected") continue;
-    for (const f of result.value.response) {
-      if (seen.has(f.fixture.id) || !FINISHED_STATUSES.has(f.fixture.status.short)) continue;
-      seen.add(f.fixture.id);
-      allH2H.push(f);
+  // Only fetch a second season if the first returned fewer than 3 matches.
+  // This keeps the typical cost at 1 request while still providing coverage
+  // for pairs that didn't meet in the most recent season.
+  if (allEntries.length < 3) {
+    const prev = await fetchAF(
+      `/fixtures/headtohead?h2h=${teamAApiId}-${teamBApiId}&season=${
+        currentYear - 2
+      }`
+    );
+    const prevFinished = prev.response.filter((f) =>
+      FINISHED_STATUSES.has(f.fixture.status.short)
+    );
+
+    // Deduplicate by fixture ID before merging
+    const seen = new Set(allEntries.map((f) => f.fixture.id));
+    for (const f of prevFinished) {
+      if (!seen.has(f.fixture.id)) {
+        allEntries.push(f);
+        seen.add(f.fixture.id);
+      }
     }
   }
 
-  allH2H.sort(
-    (a, b) => new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime()
+  // Sort newest-first
+  allEntries.sort(
+    (a, b) =>
+      new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime()
   );
 
   let teamAWins = 0;
   let teamBWins = 0;
   let draws = 0;
 
-  for (const f of allH2H) {
+  for (const f of allEntries) {
     const homeGoals = f.goals.home;
     const awayGoals = f.goals.away;
     if (homeGoals === null || awayGoals === null) continue;
@@ -242,7 +268,9 @@ export async function getH2HAF(
     teamA: { id: teamAFDId, wins: teamAWins },
     teamB: { id: teamBFDId, wins: teamBWins },
     draws,
-    totalMatches: allH2H.length,
-    recentMatches: allH2H.slice(0, 5).map((f) => normalizeAFMatch(f, idMap)),
+    totalMatches: allEntries.length,
+    recentMatches: allEntries
+      .slice(0, 5)
+      .map((f) => normalizeAFMatch(f, idMap)),
   };
 }
