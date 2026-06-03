@@ -15,7 +15,8 @@ import { cn, formatMatchDate, calculateAge, sortPlayersByPosition } from "@/lib/
 import AIScoutChat from "@/components/AIScoutChat";
 import StatRadar, { computeRadarStats } from "@/components/StatRadar";
 import { FormBadge, StatBar } from "@/components/StatsComponents";
-import { Skeleton, SkeletonText } from "@/components/Skeleton";
+import { Skeleton, SkeletonText, SkeletonCard } from "@/components/Skeleton";
+import { getNextFixture } from "@/lib/wc2026-schedule";
 
 // ─── Animation constants ────────────────────────────────────────────────────
 
@@ -63,6 +64,17 @@ interface MatchupClientProps {
 
 type Tab = "overview" | "h2h" | "squad" | "chat";
 
+interface TopPlayer {
+  id: number;
+  name: string;
+  position: string;
+  goals: number;
+  assists: number;
+  rating: number | null;
+  appearances: number;
+  club: string;
+}
+
 interface FixturesData {
   fixtures: Match[];
 }
@@ -94,18 +106,31 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
   const [h2hData, setH2HData] = useState<H2HData["h2h"] | null>(null);
   const [squadA, setSquadA] = useState<SquadData["squad"] | null>(null);
   const [squadB, setSquadB] = useState<SquadData["squad"] | null>(null);
+  const [playerStatsA, setPlayerStatsA] = useState<TopPlayer[] | null>(null);
+  const [playerStatsB, setPlayerStatsB] = useState<TopPlayer[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
-        const [fA, fB, h2h, sA, sB] = await Promise.allSettled([
+        const [fA, fB, h2h, sA, sB, psA, psB] = await Promise.allSettled([
           fetch(`/api/fixtures?tla=${teamA.tla}`).then((r) => r.json() as Promise<FixturesData>),
           fetch(`/api/fixtures?tla=${teamB.tla}`).then((r) => r.json() as Promise<FixturesData>),
           fetch(`/api/h2h?tlaA=${teamA.tla}&tlaB=${teamB.tla}`).then((r) => r.json() as Promise<H2HData>),
           fetch(`/api/squad?tla=${teamA.tla}`).then((r) => r.json() as Promise<SquadData>),
           fetch(`/api/squad?tla=${teamB.tla}`).then((r) => r.json() as Promise<SquadData>),
+          fetch(`/api/player-stats?tla=${teamA.tla}`).then(async (r) => {
+            const data = await r.json() as { players?: TopPlayer[]; error?: string };
+            if (data.error) throw new Error(data.error);
+            return data;
+          }),
+          fetch(`/api/player-stats?tla=${teamB.tla}`).then(async (r) => {
+            const data = await r.json() as { players?: TopPlayer[]; error?: string };
+            if (data.error) throw new Error(data.error);
+            return data;
+          }),
         ]);
 
         if (fA.status === "fulfilled") setFixturesA(fA.value.fixtures ?? []);
@@ -113,6 +138,8 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
         if (h2h.status === "fulfilled") setH2HData(h2h.value.h2h ?? null);
         if (sA.status === "fulfilled") setSquadA(sA.value.squad ?? null);
         if (sB.status === "fulfilled") setSquadB(sB.value.squad ?? null);
+        if (psA.status === "fulfilled") setPlayerStatsA((psA.value as { players?: TopPlayer[] }).players ?? null);
+        if (psB.status === "fulfilled") setPlayerStatsB((psB.value as { players?: TopPlayer[] }).players ?? null);
       } catch (err) {
         console.error("Failed to load matchup data:", err);
       } finally {
@@ -121,6 +148,13 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
     }
     loadData();
   }, [teamA.tla, teamB.tla]);
+
+  function handleShare() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   function getForm(fixtures: Match[], teamId: number): MatchResult[] {
     return fixtures.slice(0, 5).map((m) => {
@@ -204,7 +238,7 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
       {/* ── Matchup hero ────────────────────────────────────────────────────── */}
       <div className="border-b px-6 py-8" style={{ borderColor: "var(--wc-gray-700)" }}>
         <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-3 gap-6 items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
 
             {/* Team A — slides in from left */}
             <motion.div
@@ -214,14 +248,14 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
               transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
             >
               <motion.div
-                className="text-7xl mb-3"
+                className="text-5xl sm:text-7xl mb-3"
                 animate={{ rotate: [0, -3, 3, 0] }}
                 transition={{ duration: 0.6, delay: 0.5, ease: "easeInOut" }}
               >
                 {teamA.flagEmoji}
               </motion.div>
               <h1
-                className="text-3xl font-extrabold tracking-tight"
+                className="text-xl sm:text-3xl font-extrabold tracking-tight"
                 style={{ fontFamily: "'Aldrich', sans-serif", letterSpacing: "-0.02em" }}
               >
                 {teamA.name}
@@ -232,6 +266,18 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
               <div className="flex justify-center gap-1 mt-3">
                 {formA.map((r, i) => <FormBadge key={i} result={r} size="sm" />)}
               </div>
+              {(() => {
+                const next = getNextFixture(teamA.tla);
+                if (!next) return null;
+                const opp = next.homeTeamTla === teamA.tla ? next.awayTeamTla : next.homeTeamTla;
+                const d = new Date(next.date);
+                const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                return (
+                  <div className="mt-2 text-xs font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
+                    Next: vs {opp} · {label}
+                  </div>
+                );
+              })()}
             </motion.div>
 
             {/* VS center — fades + scales up */}
@@ -271,6 +317,18 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              <motion.button
+                onClick={handleShare}
+                className="mt-4 px-4 py-1.5 rounded text-xs font-bold font-['Space_Mono'] border transition-colors"
+                style={{
+                  borderColor: "var(--wc-gray-700)",
+                  color: copied ? "var(--wc-gold)" : "var(--wc-gray-400)",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {copied ? "✓ Copied!" : "Share"}
+              </motion.button>
             </motion.div>
 
             {/* Team B — slides in from right */}
@@ -281,14 +339,14 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
               transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
             >
               <motion.div
-                className="text-7xl mb-3"
+                className="text-5xl sm:text-7xl mb-3"
                 animate={{ rotate: [0, 3, -3, 0] }}
                 transition={{ duration: 0.6, delay: 0.55, ease: "easeInOut" }}
               >
                 {teamB.flagEmoji}
               </motion.div>
               <h2
-                className="text-3xl font-extrabold tracking-tight"
+                className="text-xl sm:text-3xl font-extrabold tracking-tight"
                 style={{ fontFamily: "'Aldrich', sans-serif", letterSpacing: "-0.02em" }}
               >
                 {teamB.name}
@@ -299,6 +357,18 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
               <div className="flex justify-center gap-1 mt-3">
                 {formB.map((r, i) => <FormBadge key={i} result={r} size="sm" />)}
               </div>
+              {(() => {
+                const next = getNextFixture(teamB.tla);
+                if (!next) return null;
+                const opp = next.homeTeamTla === teamB.tla ? next.awayTeamTla : next.homeTeamTla;
+                const d = new Date(next.date);
+                const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                return (
+                  <div className="mt-2 text-xs font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
+                    Next: vs {opp} · {label}
+                  </div>
+                );
+              })()}
             </motion.div>
 
           </div>
@@ -567,9 +637,9 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
             {activeTab === "squad" && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {[
-                  { team: teamA, squad: squadA },
-                  { team: teamB, squad: squadB },
-                ].map(({ team, squad }) => (
+                  { team: teamA, squad: squadA, playerStats: playerStatsA },
+                  { team: teamB, squad: squadB, playerStats: playerStatsB },
+                ].map(({ team, squad, playerStats }) => (
                   <div
                     key={team.tla}
                     className="rounded-2xl p-5 border"
@@ -593,6 +663,63 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* Key player spotlight */}
+                    <div className="mb-5">
+                      <div
+                        className="text-xs font-bold mb-3 font-['Space_Mono'] uppercase tracking-wider"
+                        style={{ color: "var(--wc-gray-400)" }}
+                      >
+                        Key players
+                      </div>
+                      {loading || playerStats === null ? (
+                        <div className="space-y-3">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <SkeletonCard key={i} />
+                          ))}
+                        </div>
+                      ) : playerStats.length === 0 ? (
+                        <div className="text-xs font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
+                          Player stats unavailable
+                        </div>
+                      ) : (
+                        <div className="grid gap-2">
+                          {playerStats.slice(0, 3).map((p) => (
+                            <div
+                              key={p.id}
+                              className="rounded-xl p-3 border flex items-start justify-between"
+                              style={{ background: "var(--wc-gray-800)", borderColor: "var(--wc-gray-700)" }}
+                            >
+                              <div>
+                                <div className="font-bold text-sm">{p.name}</div>
+                                <div className="text-xs mt-0.5" style={{ color: "var(--wc-gray-400)" }}>
+                                  {p.club}
+                                </div>
+                                <div className="flex gap-2 mt-1.5 text-xs font-['Space_Mono']">
+                                  <span style={{ color: "var(--wc-gold)" }}>{p.goals}G</span>
+                                  <span style={{ color: "var(--wc-gray-400)" }}>{p.assists}A</span>
+                                  {p.rating !== null && (
+                                    <span style={{ color: "#00ff87" }}>{p.rating.toFixed(1)}★</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span
+                                className={cn(
+                                  "text-[9px] px-1.5 py-0.5 rounded font-['Space_Mono'] font-bold shrink-0",
+                                  p.position === "Goalkeeper" && "bg-amber-500/20 text-amber-400",
+                                  p.position === "Defender" && "bg-blue-500/20 text-blue-400",
+                                  p.position === "Midfielder" && "bg-purple-500/20 text-purple-400",
+                                  p.position === "Forward" && "bg-emerald-600/20 text-emerald-400",
+                                  !["Goalkeeper","Defender","Midfielder","Forward"].includes(p.position) && "bg-white/10 text-white/50"
+                                )}
+                              >
+                                {p.position?.slice(0, 3).toUpperCase()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {loading ? (

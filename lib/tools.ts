@@ -14,6 +14,7 @@ import { ToolDefinition } from "@/types";
 import { getSquad, getTeamFixtures, getH2H } from "./football-api";
 import { getTeamByTla } from "./teams-data";
 import { withCache, CacheKeys, TTL } from "./cache";
+import { getTeamStatsAF, getTopPlayerStatsAF } from "./api-football";
 
 // ─── Tool Definitions (sent to Claude on every request) ───────────────────
 
@@ -76,6 +77,23 @@ export const SCOUT_TOOLS: ToolDefinition[] = [
     name: "get_team_stats",
     description:
       "Get aggregated statistics for a team: average possession, goals per game, goals conceded, shots on target, and FIFA ranking. Use this for tactical comparison.",
+    input_schema: {
+      type: "object",
+      properties: {
+        team_tla: {
+          type: "string",
+          description: "Three-letter team abbreviation",
+        },
+      },
+      required: ["team_tla"],
+    },
+  },
+  {
+    name: "get_player_stats",
+    description:
+      "Get the top performing players for a national team: goals, assists, " +
+      "match ratings, and appearances for the current season. Use this to " +
+      "identify key players and predict who will be influential in the matchup.",
     input_schema: {
       type: "object",
       properties: {
@@ -212,21 +230,43 @@ export async function executeTool(
 
       const n = matches.length || 1;
 
+      // Try to get enhanced stats from api-football
+      let afStats: { possession: number | null; shotsOnTargetPerGame: number | null; passAccuracy: number | null; goalsPerGame: number | null; } | null = null;
+      if (team.apiFootballId) {
+        try {
+          afStats = await withCache(
+            `v2:team_stats:${team.apiFootballId}:${new Date().getFullYear()}`,
+            TTL.STATS,
+            () => getTeamStatsAF(team.apiFootballId, team.confederation)
+          );
+        } catch {
+          // api-football unavailable, continue with nulls
+        }
+      }
+
       return {
         teamId: team.footballDataId,
         teamName: team.name,
         tla: team.tla,
         confederation: team.confederation,
         fifaRanking: team.fifaRanking,
-        goalsPerGame: Math.round((goalsScored / n) * 100) / 100,
+        goalsPerGame: afStats?.goalsPerGame ?? Math.round((goalsScored / n) * 100) / 100,
         goalsConcededPerGame: Math.round((goalsConceded / n) * 100) / 100,
-        // Possession and shot data require api-football.com (freemium)
-        // Placeholder values — replace with real data when API key is set
-        possession: null,
-        shotsPerGame: null,
-        passAccuracy: null,
-        note: "Detailed possession/shot stats require api-football.com key",
+        possession: afStats?.possession ?? null,
+        shotsPerGame: afStats?.shotsOnTargetPerGame ?? null,
+        passAccuracy: afStats?.passAccuracy ?? null,
       };
+    }
+
+    case "get_player_stats": {
+      const tla = input.team_tla!;
+      const team = getTeamByTla(tla);
+      if (!team) throw new Error(`Unknown team: ${tla}`);
+      return withCache(
+        `v2:player_stats_top:${team.apiFootballId}:${new Date().getFullYear()}`,
+        TTL.STATS,
+        () => getTopPlayerStatsAF(team.apiFootballId)
+      );
     }
 
     default:

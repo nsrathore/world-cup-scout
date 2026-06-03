@@ -12,6 +12,7 @@
  */
 
 import { Match } from "@/types";
+import { withCache, TTL } from "@/lib/cache";
 
 const BASE_URL = "https://v3.football.api-sports.io";
 const API_KEY = process.env.API_FOOTBALL_KEY ?? "";
@@ -57,6 +58,22 @@ interface AFResponse {
 }
 
 // ─── Internal helpers ──────────────────────────────────────────────────────
+
+async function fetchAFRaw<T>(endpoint: string): Promise<{ response: T; errors: unknown }> {
+  const url = `${BASE_URL}${endpoint}`;
+  const res = await fetch(url, {
+    headers: {
+      "x-rapidapi-key": API_KEY,
+      "x-apisports-key": API_KEY,
+      "x-rapidapi-host": "v3.football.api-sports.io",
+    },
+    next: { revalidate: 21600 },
+  });
+  if (!res.ok) {
+    throw new Error(`api-football error [${res.status}]: ${await res.text()}`);
+  }
+  return res.json() as Promise<{ response: T; errors: unknown }>;
+}
 
 async function fetchAF(endpoint: string): Promise<AFResponse> {
   const url = `${BASE_URL}${endpoint}`;
@@ -273,4 +290,142 @@ export async function getH2HAF(
       .slice(0, 5)
       .map((f) => normalizeAFMatch(f, idMap)),
   };
+}
+
+// ─── Team season statistics ────────────────────────────────────────────────
+
+interface AFTeamStatsRaw {
+  possession?: { average?: { total?: string | null } };
+  shots?: { on?: { average?: string | null } };
+  passes?: { accuracy?: string | null };
+  goals?: { for?: { average?: { total?: string | null } } };
+}
+
+function parsePercent(val: string | null | undefined): number | null {
+  if (!val) return null;
+  const n = parseFloat(val.replace("%", ""));
+  return isNaN(n) ? null : n;
+}
+
+function parseNum(val: string | null | undefined): number | null {
+  if (!val) return null;
+  const n = parseFloat(val);
+  return isNaN(n) ? null : n;
+}
+
+async function fetchTeamStatsForLeague(
+  apiFootballId: number,
+  league: number,
+  year: number
+): Promise<AFTeamStatsRaw | null> {
+  try {
+    const data = await fetchAFRaw<AFTeamStatsRaw>(
+      `/teams/statistics?team=${apiFootballId}&season=${year}&league=${league}`
+    );
+    if (!data.response) return null;
+    return data.response;
+  } catch {
+    return null;
+  }
+}
+
+export async function getTeamStatsAF(
+  apiFootballId: number,
+  confederation?: string
+): Promise<{
+  possession: number | null;
+  shotsOnTargetPerGame: number | null;
+  passAccuracy: number | null;
+  goalsPerGame: number | null;
+} | null> {
+  const year = new Date().getFullYear();
+
+  // Try World Cup league first
+  let stats = await fetchTeamStatsForLeague(apiFootballId, 1, year);
+
+  // Fall back by confederation
+  if (!stats || !stats.goals) {
+    const fallbackLeague =
+      confederation === "UEFA" ? 4 :
+      confederation === "CONMEBOL" ? 9 :
+      confederation === "CONCACAF" ? 31 :
+      4;
+    stats = await fetchTeamStatsForLeague(apiFootballId, fallbackLeague, year);
+  }
+
+  if (!stats) return null;
+
+  return {
+    possession: parsePercent(stats.possession?.average?.total),
+    shotsOnTargetPerGame: parseNum(stats.shots?.on?.average),
+    passAccuracy: parsePercent(stats.passes?.accuracy),
+    goalsPerGame: parseNum(stats.goals?.for?.average?.total),
+  };
+}
+
+// ─── Top player stats ──────────────────────────────────────────────────────
+
+interface AFPlayerEntry {
+  player: {
+    id: number;
+    name: string;
+    nationality: string;
+  };
+  statistics: Array<{
+    team: { name: string };
+    games: {
+      position: string;
+      rating: string | null;
+      appearences: number | null;
+    };
+    goals: {
+      total: number | null;
+      assists: number | null;
+    };
+  }>;
+}
+
+export async function getTopPlayerStatsAF(
+  apiFootballId: number,
+  limit = 5
+): Promise<Array<{
+  id: number;
+  name: string;
+  position: string;
+  goals: number;
+  assists: number;
+  rating: number | null;
+  appearances: number;
+  club: string;
+}>> {
+  const year = new Date().getFullYear();
+  const cacheKey = `v2:player_stats_top:${apiFootballId}:${year}`;
+
+  return withCache(cacheKey, TTL.STATS, async () => {
+    const data = await fetchAFRaw<AFPlayerEntry[]>(
+      `/players?team=${apiFootballId}&season=${year}`
+    );
+
+    const players = (data.response ?? []).map((entry) => {
+      const stats = entry.statistics[0];
+      const ratingRaw = stats?.games?.rating;
+      return {
+        id: entry.player.id,
+        name: entry.player.name,
+        position: stats?.games?.position ?? "Unknown",
+        goals: stats?.goals?.total ?? 0,
+        assists: stats?.goals?.assists ?? 0,
+        rating: ratingRaw ? parseFloat(ratingRaw) : null,
+        appearances: stats?.games?.appearences ?? 0,
+        club: stats?.team?.name ?? "",
+      };
+    });
+
+    players.sort((a, b) => {
+      if (b.goals !== a.goals) return b.goals - a.goals;
+      return (b.rating ?? 0) - (a.rating ?? 0);
+    });
+
+    return players.slice(0, limit);
+  });
 }

@@ -337,7 +337,7 @@ export default function TeamSelector() {
         </div>
 
         {/* ── Team selection slots ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           <TeamSlot
             label="TEAM A"
             team={teamA}
@@ -440,7 +440,7 @@ export default function TeamSelector() {
 
           {/* Confederation pills */}
           <motion.div
-            className="flex gap-2 flex-wrap"
+            className="flex gap-2 flex-wrap overflow-x-auto"
             variants={STAGGER}
             initial="hidden"
             animate="visible"
@@ -465,7 +465,7 @@ export default function TeamSelector() {
         <AnimatePresence mode="wait">
           <motion.div
             key={`${confFilter}-${search}`}
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+            className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"
             variants={STAGGER}
             initial="hidden"
             animate="visible"

@@ -8,9 +8,9 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { teamA, teamB } = await params;
-  const a = getTeamByTla(teamA);
-  const b = getTeamByTla(teamB);
+  const { teamA: tlaA, teamB: tlaB } = await params;
+  const a = getTeamByTla(tlaA);
+  const b = getTeamByTla(tlaB);
   if (!a || !b) return { title: "Matchup Not Found" };
 
   return {
@@ -19,6 +19,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: `${a.flagEmoji} ${a.name} vs ${b.name} ${b.flagEmoji}`,
       description: "World Cup 2026 AI matchup analysis powered by Claude",
+      images: [
+        {
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/api/og?teamA=${tlaA}&teamB=${tlaB}`,
+          width: 1200,
+          height: 630,
+        },
+      ],
     },
   };
 }

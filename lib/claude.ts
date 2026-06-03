@@ -15,6 +15,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { SCOUT_TOOLS, executeTool, ToolInput } from "./tools";
 import { ChatMessage } from "@/types";
+import { validateEnv } from "./env";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -58,6 +59,7 @@ export function createAnalysisStream(
 
   return new ReadableStream({
     async start(controller) {
+      validateEnv();
       function send(event: StreamEvent) {
         const data = `data: ${JSON.stringify(event)}\n\n`;
         controller.enqueue(encoder.encode(data));
