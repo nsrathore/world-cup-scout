@@ -47,10 +47,30 @@ interface BSDEvent {
   away_score: number | null;
   home_score_ht: number | null;
   away_score_ht: number | null;
-  league_name: string;
-  home_team_logo: string;
-  away_team_logo: string;
+  league_id: number;
+  league_name: string | null;
+  home_team_logo: string | null;
+  away_team_logo: string | null;
 }
+
+// League ID → human-readable name (sourced from GET /api/v2/leagues/)
+const LEAGUE_NAMES: Record<number, string> = {
+  27: "World Cup 2026",
+  31: "International Friendly",
+  58: "WC Qualification UEFA",
+  59: "WC Qualification CONMEBOL",
+  60: "WC Qualification CAF",
+  61: "WC Qualification AFC",
+  62: "WC Qualification CONCACAF",
+  63: "WC Qualification OFC",
+  64: "UEFA Nations League",
+  65: "CONCACAF Nations League",
+  66: "UEFA Euro 2024",
+  67: "Copa America 2024",
+  68: "AFC Asian Cup",
+  69: "CONCACAF Gold Cup 2025",
+  30: "AFCON 2023",
+};
 
 interface BSDEventsResponse {
   results: BSDEvent[];
@@ -139,18 +159,18 @@ function normalizeBSDEvent(e: BSDEvent): Match {
     homeTeam: {
       id: e.home_team_id,
       name: e.home_team,
-      crest: e.home_team_logo,
+      crest: e.home_team_logo ?? "",
     },
     awayTeam: {
       id: e.away_team_id,
       name: e.away_team,
-      crest: e.away_team_logo,
+      crest: e.away_team_logo ?? "",
     },
     score: {
       fullTime: { home: e.home_score,    away: e.away_score    },
       halfTime: { home: e.home_score_ht, away: e.away_score_ht },
     },
-    competition: e.league_name,
+    competition: e.league_name ?? LEAGUE_NAMES[e.league_id] ?? "International",
     status: normalizeStatus(e.status),
   };
 }
@@ -164,7 +184,7 @@ function normalizeBSDEvent(e: BSDEvent): Match {
  */
 export async function getSquad(bsdTeamId: number) {
   const data = await fetchBSD<BSDSquadListResponse>(
-    `/worldcup/squads/?team_id=${bsdTeamId}&limit=100`
+    `/worldcup/squads/?team=${bsdTeamId}&limit=100`
   );
 
   const players = (data.results ?? [])
