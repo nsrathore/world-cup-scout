@@ -191,25 +191,33 @@ export default function AIScoutChat({
         {messages.map((msg, i) => (
           <div key={i} className={cn("flex gap-3", msg.role === "user" && "justify-end")}>
             {msg.role === "assistant" && (
-              <div className="w-7 h-7 rounded-full bg-[#00ff87]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-[#00ff87] text-xs">⚡</span>
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ background: "rgba(255,219,0,0.15)" }}
+              >
+                <span className="text-xs" style={{ color: "var(--wc-gold)" }}>⚡</span>
               </div>
             )}
             <div
-              className={cn(
-                "rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-[85%]",
+              className="rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-[85%]"
+              style={
                 msg.role === "user"
-                  ? "bg-white/10 text-white ml-auto"
-                  : "bg-white/5 border border-white/10 text-white/90"
-              )}
+                  ? { background: "rgba(255,255,255,0.08)", color: "var(--wc-white)", marginLeft: "auto" }
+                  : { background: "var(--wc-gray-900)", border: "1px solid var(--wc-gray-700)", color: "var(--wc-gray-200)" }
+              }
             >
               {/* Tool calls indicator */}
               {msg.toolCalls && msg.toolCalls.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {msg.toolCalls.map((tool) => (
+                  {msg.toolCalls.map((tool, ti) => (
                     <span
-                      key={tool}
-                      className="text-[10px] px-2 py-0.5 rounded-full bg-[#00ff87]/10 text-[#00ff87] font-['Space_Mono'] border border-[#00ff87]/20"
+                      key={`${tool}-${ti}`}
+                      className="text-[10px] px-2 py-0.5 rounded-full font-['Space_Mono']"
+                      style={{
+                        background: "rgba(255,219,0,0.10)",
+                        color: "var(--wc-gold)",
+                        border: "1px solid rgba(255,219,0,0.2)",
+                      }}
                     >
                       ✓ {TOOL_LABELS[tool] ?? tool}
                     </span>
@@ -221,7 +229,7 @@ export default function AIScoutChat({
               <div style={{ whiteSpace: "pre-wrap" }}>
                 {msg.content}
                 {msg.isStreaming && (
-                  <span className="inline-block w-0.5 h-4 bg-[#00ff87] animate-pulse ml-0.5 align-middle" />
+                  <span className="inline-block w-0.5 h-4 animate-pulse ml-0.5 align-middle" style={{ background: "var(--wc-gold)" }} />
                 )}
               </div>
             </div>
@@ -231,10 +239,16 @@ export default function AIScoutChat({
         {/* Active tool loading state */}
         {isLoading && activeTools.length > 0 && (
           <div className="flex gap-3">
-            <div className="w-7 h-7 rounded-full bg-[#00ff87]/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-[#00ff87] text-xs animate-spin">⚡</span>
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(255,219,0,0.15)" }}
+            >
+              <span className="text-xs animate-spin" style={{ color: "var(--wc-gold)" }}>⚡</span>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm">
+            <div
+              className="rounded-2xl px-4 py-3 text-sm border"
+              style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
+            >
               <div className="flex flex-wrap gap-1.5">
                 {activeTools.map((tool) => (
                   <span
@@ -260,12 +274,26 @@ export default function AIScoutChat({
           onChange={(e) => setInput(e.target.value)}
           disabled={isLoading}
           placeholder={`Ask about ${teamAName} vs ${teamBName}...`}
-          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[#00ff87]/50 transition-colors disabled:opacity-50 font-['Space_Mono']"
+          className="flex-1 rounded px-4 py-2.5 text-sm text-white outline-none transition-colors disabled:opacity-50"
+          style={{
+            background: "var(--wc-gray-800)",
+            border: "1px solid var(--wc-gray-700)",
+            fontFamily: "'Noto Sans', sans-serif",
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(255,219,0,0.5)")}
+          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--wc-gray-700)")}
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="px-4 py-2.5 bg-[#00ff87] text-black rounded-xl font-bold text-sm hover:bg-[#00e87a] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="px-4 py-2.5 rounded font-bold text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{
+            background: "var(--wc-gold)",
+            color: "var(--wc-black)",
+            fontFamily: "'Aldrich', sans-serif",
+          }}
+          onMouseEnter={(e) => { if (!e.currentTarget.disabled) (e.currentTarget as HTMLButtonElement).style.background = "var(--wc-gold-dark)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--wc-gold)"; }}
         >
           →
         </button>

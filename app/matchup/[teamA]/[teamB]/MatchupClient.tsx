@@ -72,7 +72,6 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
     loadData();
   }, [teamA.tla, teamB.tla]);
 
-  // Derive form strings
   function getForm(fixtures: Match[], teamId: number): MatchResult[] {
     return fixtures.slice(0, 5).map((m) => {
       const { home, away } = m.score.fullTime;
@@ -114,38 +113,53 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
     { id: "overview", label: "Overview" },
     { id: "h2h", label: "Head-to-head" },
     { id: "squad", label: "Squad" },
-    { id: "chat", label: "AI Scout" },
+    { id: "chat", label: "⚡ AI Scout" },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] text-white font-['Syne',sans-serif]">
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');`}</style>
+    <div className="min-h-screen text-white" style={{ background: "var(--wc-black)", fontFamily: "'Noto Sans', sans-serif" }}>
 
       {/* Header */}
-      <header className="border-b border-white/10 px-6 py-4 flex items-center gap-4">
+      <header className="border-b px-6 py-4 flex items-center gap-4" style={{ borderColor: "var(--wc-gray-700)" }}>
         <button
           onClick={() => router.push("/")}
-          className="text-white/40 hover:text-white transition-colors text-sm font-['Space_Mono']"
+          className="text-sm font-['Space_Mono'] transition-colors"
+          style={{ color: "var(--wc-gray-400)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--wc-white)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--wc-gray-400)")}
         >
           ← Back
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-[#00ff87] flex items-center justify-center">
+          <div
+            className="w-6 h-6 rounded flex items-center justify-center"
+            style={{ background: "var(--wc-gold)" }}
+          >
             <span className="text-black text-xs font-bold">⚡</span>
           </div>
-          <span className="font-bold tracking-tight">Scout AI</span>
+          <span
+            className="font-bold tracking-tight"
+            style={{ fontFamily: "'Aldrich', sans-serif" }}
+          >
+            FIFA World Cup 26™
+          </span>
         </div>
       </header>
 
       {/* Matchup hero */}
-      <div className="border-b border-white/10 px-6 py-8">
+      <div className="border-b px-6 py-8" style={{ borderColor: "var(--wc-gray-700)" }}>
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-3 gap-6 items-center">
             {/* Team A */}
             <div className="text-center">
               <div className="text-6xl mb-3">{teamA.flagEmoji}</div>
-              <h1 className="text-2xl font-extrabold tracking-tight">{teamA.name}</h1>
-              <div className="text-sm text-white/40 font-['Space_Mono'] mt-1">
+              <h1
+                className="text-2xl font-extrabold tracking-tight"
+                style={{ fontFamily: "'Aldrich', sans-serif", letterSpacing: "-0.02em" }}
+              >
+                {teamA.name}
+              </h1>
+              <div className="text-sm mt-1 font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
                 FIFA #{teamA.fifaRanking} · {teamA.tla}
               </div>
               <div className="flex justify-center gap-1 mt-3">
@@ -155,15 +169,28 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
 
             {/* VS center */}
             <div className="text-center">
-              <div className="text-5xl font-extrabold text-white/20 tracking-tighter mb-2">VS</div>
-              <div className="text-xs text-white/30 font-['Space_Mono']">World Cup 2026</div>
+              <div
+                className="text-5xl font-extrabold tracking-tighter mb-2"
+                style={{ fontFamily: "'Aldrich', sans-serif", color: "var(--wc-gold)" }}
+              >
+                VS
+              </div>
+              <div className="text-xs font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
+                World Cup 2026
+              </div>
               {h2hData && (
-                <div className="mt-4 bg-white/5 rounded-xl p-3 text-xs font-['Space_Mono']">
-                  <div className="text-white/40 mb-1">All-time record</div>
+                <div
+                  className="mt-4 rounded p-3 text-xs font-['Space_Mono'] border"
+                  style={{
+                    background: "var(--wc-gray-900)",
+                    borderColor: "var(--wc-gold)",
+                  }}
+                >
+                  <div className="mb-1" style={{ color: "var(--wc-gray-400)" }}>All-time record</div>
                   <div className="flex justify-center gap-3">
-                    <span className="text-[#00ff87]">{h2hData.teamA.wins}W</span>
-                    <span className="text-white/40">{h2hData.draws}D</span>
-                    <span className="text-blue-400">{h2hData.teamB.wins}W</span>
+                    <span style={{ color: "var(--wc-gold)" }}>{h2hData.teamA.wins}W</span>
+                    <span style={{ color: "var(--wc-gray-400)" }}>{h2hData.draws}D</span>
+                    <span style={{ color: "var(--wc-white)" }}>{h2hData.teamB.wins}W</span>
                   </div>
                 </div>
               )}
@@ -172,8 +199,13 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
             {/* Team B */}
             <div className="text-center">
               <div className="text-6xl mb-3">{teamB.flagEmoji}</div>
-              <h2 className="text-2xl font-extrabold tracking-tight">{teamB.name}</h2>
-              <div className="text-sm text-white/40 font-['Space_Mono'] mt-1">
+              <h2
+                className="text-2xl font-extrabold tracking-tight"
+                style={{ fontFamily: "'Aldrich', sans-serif", letterSpacing: "-0.02em" }}
+              >
+                {teamB.name}
+              </h2>
+              <div className="text-sm mt-1 font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
                 FIFA #{teamB.fifaRanking} · {teamB.tla}
               </div>
               <div className="flex justify-center gap-1 mt-3">
@@ -184,19 +216,22 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-white/10 px-6">
+      {/* Tab bar */}
+      <div
+        className="border-b px-6"
+        style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
+      >
         <div className="max-w-5xl mx-auto flex gap-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "px-4 py-3 text-sm font-bold transition-colors border-b-2",
-                activeTab === tab.id
-                  ? "text-[#00ff87] border-[#00ff87]"
-                  : "text-white/40 border-transparent hover:text-white/70"
-              )}
+              className="px-4 py-3 text-sm font-bold transition-colors border-b-2"
+              style={{
+                color: activeTab === tab.id ? "var(--wc-gold)" : "var(--wc-gray-400)",
+                borderBottomColor: activeTab === tab.id ? "var(--wc-gold)" : "transparent",
+                fontFamily: "'Aldrich', sans-serif",
+              }}
             >
               {tab.label}
             </button>
@@ -211,8 +246,14 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Radar */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              <h3 className="text-sm font-bold text-white/50 mb-4 font-['Space_Mono'] uppercase tracking-wider">
+            <div
+              className="rounded-2xl p-6 border"
+              style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
+            >
+              <h3
+                className="text-xs font-bold mb-4 font-['Space_Mono'] uppercase tracking-wider"
+                style={{ color: "var(--wc-gray-400)" }}
+              >
                 Stat comparison
               </h3>
               <StatRadar
@@ -224,12 +265,20 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
             </div>
 
             {/* Key stats */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-              <h3 className="text-sm font-bold text-white/50 mb-4 font-['Space_Mono'] uppercase tracking-wider">
+            <div
+              className="rounded-2xl p-6 space-y-4 border"
+              style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
+            >
+              <h3
+                className="text-xs font-bold mb-4 font-['Space_Mono'] uppercase tracking-wider"
+                style={{ color: "var(--wc-gray-400)" }}
+              >
                 Key metrics (last 10 matches)
               </h3>
               {loading ? (
-                <div className="text-white/30 text-sm font-['Space_Mono']">Loading stats...</div>
+                <div className="text-sm font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
+                  Loading stats...
+                </div>
               ) : (
                 <>
                   <StatBar
@@ -254,7 +303,10 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                     format={() => ""}
                   />
                   <div className="pt-2">
-                    <div className="flex justify-between text-xs text-white/40 font-['Space_Mono'] mb-2">
+                    <div
+                      className="flex justify-between text-xs font-['Space_Mono'] mb-2"
+                      style={{ color: "var(--wc-gray-400)" }}
+                    >
                       <span>Recent form (last 5)</span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -276,28 +328,63 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
         {activeTab === "h2h" && (
           <div className="space-y-6">
             {loading ? (
-              <div className="text-white/30 font-['Space_Mono'] text-sm">Loading H2H data...</div>
+              <div className="font-['Space_Mono'] text-sm" style={{ color: "var(--wc-gray-400)" }}>
+                Loading H2H data...
+              </div>
             ) : h2hData && h2hData.totalMatches > 0 ? (
               <>
                 {/* Summary */}
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-[#00ff87]/10 border border-[#00ff87]/20 rounded-2xl p-6 text-center">
-                    <div className="text-4xl font-extrabold text-[#00ff87]">{h2hData.teamA.wins}</div>
-                    <div className="text-sm text-white/50 mt-1">{teamA.name} wins</div>
+                  <div
+                    className="rounded-2xl p-6 text-center border"
+                    style={{ background: "rgba(255,219,0,0.08)", borderColor: "rgba(255,219,0,0.3)" }}
+                  >
+                    <div
+                      className="text-4xl font-extrabold"
+                      style={{ fontFamily: "'Aldrich', sans-serif", color: "var(--wc-gold)" }}
+                    >
+                      {h2hData.teamA.wins}
+                    </div>
+                    <div className="text-sm mt-1" style={{ color: "var(--wc-gray-400)" }}>
+                      {teamA.name} wins
+                    </div>
                   </div>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center">
-                    <div className="text-4xl font-extrabold text-white/60">{h2hData.draws}</div>
-                    <div className="text-sm text-white/50 mt-1">Draws</div>
+                  <div
+                    className="rounded-2xl p-6 text-center border"
+                    style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
+                  >
+                    <div
+                      className="text-4xl font-extrabold"
+                      style={{ fontFamily: "'Aldrich', sans-serif", color: "var(--wc-gray-400)" }}
+                    >
+                      {h2hData.draws}
+                    </div>
+                    <div className="text-sm mt-1" style={{ color: "var(--wc-gray-400)" }}>
+                      Draws
+                    </div>
                   </div>
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6 text-center">
-                    <div className="text-4xl font-extrabold text-blue-400">{h2hData.teamB.wins}</div>
-                    <div className="text-sm text-white/50 mt-1">{teamB.name} wins</div>
+                  <div
+                    className="rounded-2xl p-6 text-center border"
+                    style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.15)" }}
+                  >
+                    <div
+                      className="text-4xl font-extrabold"
+                      style={{ fontFamily: "'Aldrich', sans-serif", color: "var(--wc-white)" }}
+                    >
+                      {h2hData.teamB.wins}
+                    </div>
+                    <div className="text-sm mt-1" style={{ color: "var(--wc-gray-400)" }}>
+                      {teamB.name} wins
+                    </div>
                   </div>
                 </div>
 
                 {/* Recent encounters */}
                 <div>
-                  <h3 className="text-sm font-bold text-white/50 mb-4 font-['Space_Mono'] uppercase tracking-wider">
+                  <h3
+                    className="text-xs font-bold mb-4 font-['Space_Mono'] uppercase tracking-wider"
+                    style={{ color: "var(--wc-gray-400)" }}
+                  >
                     Recent encounters
                   </h3>
                   <div className="space-y-2">
@@ -306,19 +393,26 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                       return (
                         <div
                           key={match.id}
-                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between"
+                          className="rounded px-4 py-3 flex items-center justify-between border"
+                          style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
                         >
-                          <div className="text-xs text-white/40 font-['Space_Mono'] w-28">
+                          <div className="text-xs font-['Space_Mono'] w-28" style={{ color: "var(--wc-gray-400)" }}>
                             {formatMatchDate(match.date)}
                           </div>
                           <div className="flex items-center gap-3 flex-1 justify-center">
                             <span className="text-sm font-bold">{match.homeTeam.name}</span>
-                            <span className="font-['Space_Mono'] font-bold text-lg text-white/70">
+                            <span
+                              className="font-['Aldrich',sans-serif] font-bold text-lg"
+                              style={{ fontFamily: "'Aldrich', sans-serif", color: "var(--wc-white)" }}
+                            >
                               {home} – {away}
                             </span>
                             <span className="text-sm font-bold">{match.awayTeam.name}</span>
                           </div>
-                          <div className="text-xs text-white/30 w-28 text-right font-['Space_Mono']">
+                          <div
+                            className="text-xs w-28 text-right font-['Space_Mono']"
+                            style={{ color: "var(--wc-gray-400)" }}
+                          >
                             {match.competition}
                           </div>
                         </div>
@@ -328,7 +422,7 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                 </div>
               </>
             ) : (
-              <div className="text-center py-16 text-white/30">
+              <div className="text-center py-16" style={{ color: "var(--wc-gray-400)" }}>
                 <div className="text-4xl mb-4">🏟️</div>
                 <div className="font-['Space_Mono']">No H2H history found for these teams</div>
                 <div className="text-sm mt-2">They may not have met in recorded competitions</div>
@@ -344,37 +438,58 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
               { team: teamA, squad: squadA },
               { team: teamB, squad: squadB },
             ].map(({ team, squad }) => (
-              <div key={team.tla} className="bg-white/5 border border-white/10 rounded-2xl p-5">
+              <div
+                key={team.tla}
+                className="rounded-2xl p-5 border"
+                style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
+              >
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-3xl">{team.flagEmoji}</span>
                   <div>
-                    <h3 className="font-bold">{team.name}</h3>
+                    <h3
+                      className="font-bold"
+                      style={{ fontFamily: "'Aldrich', sans-serif" }}
+                    >
+                      {team.name}
+                    </h3>
                     {squad?.coach && (
-                      <div className="text-xs text-white/40 font-['Space_Mono']">
+                      <div
+                        className="text-xs italic"
+                        style={{ color: "var(--wc-gray-400)", fontFamily: "'Noto Sans', sans-serif" }}
+                      >
                         Coach: {squad.coach.name}
                       </div>
                     )}
                   </div>
                 </div>
                 {loading ? (
-                  <div className="text-white/30 text-sm font-['Space_Mono']">Loading squad...</div>
+                  <div className="text-sm font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
+                    Loading squad...
+                  </div>
                 ) : squad ? (
                   <div className="space-y-1">
                     {sortPlayersByPosition(squad.players).map((p) => (
                       <div
                         key={p.id}
-                        className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0"
+                        className="flex items-center justify-between py-1.5 last:border-0"
+                        style={{ borderBottom: "1px solid var(--wc-gray-700)" }}
                       >
                         <div className="flex items-center gap-2">
                           {p.shirtNumber && (
-                            <span className="text-[10px] w-5 text-white/30 font-['Space_Mono']">
+                            <span
+                              className="text-[10px] w-5 font-['Space_Mono']"
+                              style={{ color: "var(--wc-gray-400)" }}
+                            >
                               {p.shirtNumber}
                             </span>
                           )}
                           <span className="text-sm">{p.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-white/30 font-['Space_Mono']">
+                          <span
+                            className="text-[10px] font-['Space_Mono']"
+                            style={{ color: "var(--wc-gray-400)" }}
+                          >
                             {calculateAge(p.dateOfBirth)}y
                           </span>
                           <span
@@ -383,7 +498,7 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                               p.position === "Goalkeeper" && "bg-amber-500/20 text-amber-400",
                               p.position === "Defender" && "bg-blue-500/20 text-blue-400",
                               p.position === "Midfielder" && "bg-purple-500/20 text-purple-400",
-                              p.position === "Forward" && "bg-[#00ff87]/20 text-[#00ff87]"
+                              p.position === "Forward" && "bg-emerald-600/20 text-emerald-400"
                             )}
                           >
                             {p.position?.slice(0, 3).toUpperCase()}
@@ -393,7 +508,7 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-white/30 text-sm font-['Space_Mono']">
+                  <div className="text-sm font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
                     Squad data unavailable — check API key
                   </div>
                 )}
@@ -404,11 +519,25 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
 
         {/* AI CHAT TAB */}
         {activeTab === "chat" && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-[600px] flex flex-col">
-            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-white/10">
-              <div className="w-2 h-2 rounded-full bg-[#00ff87] animate-pulse" />
-              <span className="text-sm font-bold">AI Scout</span>
-              <span className="text-xs text-white/40 font-['Space_Mono']">
+          <div
+            className="rounded-2xl p-6 h-[600px] flex flex-col border"
+            style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gray-700)" }}
+          >
+            <div
+              className="flex items-center gap-2 mb-4 pb-4"
+              style={{ borderBottom: "1px solid var(--wc-gray-700)" }}
+            >
+              <div
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{ background: "var(--wc-gold)" }}
+              />
+              <span
+                className="text-sm font-bold"
+                style={{ fontFamily: "'Aldrich', sans-serif" }}
+              >
+                AI Scout
+              </span>
+              <span className="text-xs font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
                 Claude claude-sonnet-4-6 + live data
               </span>
             </div>

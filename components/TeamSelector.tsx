@@ -10,6 +10,29 @@ const CONFEDERATIONS: WorldCupTeam["confederation"][] = [
   "UEFA", "CONMEBOL", "CONCACAF", "CAF", "AFC", "OFC",
 ];
 
+/** Subtle geometric "26" background tile — squares + quarter-circles at ~3% opacity */
+const GeometricPattern = () => (
+  <svg
+    className="absolute inset-0 w-full h-full pointer-events-none"
+    style={{ opacity: 0.035 }}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <defs>
+      <pattern id="wc26-tile" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+        {/* Small square */}
+        <rect x="2" y="2" width="8" height="8" fill="white" />
+        {/* Quarter circle top-right */}
+        <path d="M20 2 A10 10 0 0 1 30 12 L20 12 Z" fill="white" />
+        {/* Small square bottom-left */}
+        <rect x="2" y="28" width="8" height="8" fill="white" />
+        {/* Quarter circle bottom-right */}
+        <path d="M22 30 A8 8 0 0 0 30 38 L30 30 Z" fill="white" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#wc26-tile)" />
+  </svg>
+);
+
 export default function TeamSelector() {
   const router = useRouter();
   const [teamA, setTeamA] = useState<WorldCupTeam | null>(null);
@@ -31,7 +54,7 @@ export default function TeamSelector() {
 
   function selectTeam(team: WorldCupTeam) {
     if (selectingSlot === "A") {
-      if (teamB?.tla === team.tla) return; // prevent same team
+      if (teamB?.tla === team.tla) return;
       setTeamA(team);
       setSelectingSlot("B");
     } else {
@@ -46,42 +69,54 @@ export default function TeamSelector() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] text-white font-['Syne',sans-serif]">
-      {/* Google Fonts */}
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');`}</style>
+    <div className="min-h-screen text-white" style={{ background: "var(--wc-black)", fontFamily: "'Noto Sans', sans-serif" }}>
 
       {/* Header */}
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+      <header className="border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: "var(--wc-gray-700)" }}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#00ff87] flex items-center justify-center">
+          <div
+            className="w-8 h-8 rounded flex items-center justify-center"
+            style={{ background: "var(--wc-gold)" }}
+          >
             <span className="text-black text-sm font-bold">⚡</span>
           </div>
-          <span className="text-lg font-bold tracking-tight">Scout AI</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/60 font-['Space_Mono']">
-            WC 2026
+          <span
+            className="text-lg font-bold tracking-tight"
+            style={{ fontFamily: "'Aldrich', sans-serif" }}
+          >
+            FIFA World Cup 26™
+          </span>
+          <span
+            className="text-xs px-2 py-0.5 rounded-full font-['Space_Mono']"
+            style={{ background: "var(--wc-gray-800)", color: "var(--wc-gray-400)", border: "1px solid var(--wc-gray-700)" }}
+          >
+            SCOUT AI
           </span>
         </div>
-        <div className="text-xs text-white/40 font-['Space_Mono']">
+        <div className="text-xs font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
           Powered by Claude claude-sonnet-4-6
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-12">
-        {/* Hero */}
-        <div className="mb-12 text-center">
-          <h1
-            className="text-5xl font-extrabold tracking-tighter mb-4"
-            style={{ letterSpacing: "-0.03em" }}
-          >
-            World Cup
-            <span className="text-[#00ff87]"> Matchup</span>
-            <br />
-            Intelligence
-          </h1>
-          <p className="text-white/50 text-lg max-w-xl mx-auto">
-            AI-powered tactical analysis for every fixture. Select two nations to
-            get live stats, head-to-head history, and a Claude-generated scout report.
-          </p>
+        {/* Hero with geometric background */}
+        <div className="mb-12 text-center relative overflow-hidden rounded-2xl py-14 px-6" style={{ background: "var(--wc-gray-900)" }}>
+          <GeometricPattern />
+          <div className="relative z-10">
+            <h1
+              className="text-5xl font-extrabold mb-4"
+              style={{ fontFamily: "'Aldrich', sans-serif", letterSpacing: "-0.02em" }}
+            >
+              World Cup
+              <span style={{ color: "var(--wc-gold)" }}> Matchup</span>
+              <br />
+              Intelligence
+            </h1>
+            <p style={{ color: "var(--wc-gray-400)", fontFamily: "'Noto Sans', sans-serif" }} className="text-lg max-w-xl mx-auto">
+              AI-powered tactical intelligence —{" "}
+              <span style={{ color: "var(--wc-white)" }} className="font-semibold">WE ARE 26</span>
+            </p>
+          </div>
         </div>
 
         {/* Selection slots */}
@@ -89,39 +124,65 @@ export default function TeamSelector() {
           {/* Team A slot */}
           <button
             onClick={() => setSelectingSlot("A")}
-            className={cn(
-              "relative rounded-2xl border p-6 text-left transition-all duration-200",
-              selectingSlot === "A"
-                ? "border-[#00ff87] bg-[#00ff87]/5"
-                : "border-white/10 bg-white/5 hover:border-white/20",
-              teamA ? "" : "opacity-60"
-            )}
+            className="relative rounded-2xl border p-6 text-left transition-all duration-200"
+            style={{
+              borderColor: selectingSlot === "A" ? "var(--wc-gold)" : "var(--wc-gray-700)",
+              background: selectingSlot === "A" ? "rgba(255,219,0,0.08)" : "var(--wc-gray-900)",
+              opacity: teamA ? 1 : 0.7,
+            }}
           >
-            <div className="text-xs text-white/40 font-['Space_Mono'] mb-3">TEAM A</div>
+            <div className="text-xs mb-3 font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>TEAM A</div>
             {teamA ? (
               <>
                 <div className="text-4xl mb-2">{teamA.flagEmoji}</div>
-                <div className="text-xl font-bold">{teamA.name}</div>
-                <div className="text-sm text-white/50">
+                <div
+                  className="text-xl font-bold"
+                  style={{ fontFamily: "'Aldrich', sans-serif" }}
+                >
+                  {teamA.name}
+                </div>
+                <div className="text-sm mt-0.5" style={{ color: "var(--wc-gray-400)" }}>
                   FIFA #{teamA.fifaRanking} · {teamA.tla}
                 </div>
               </>
             ) : (
-              <div className="text-white/30 text-sm mt-2">Click a team below →</div>
+              <div className="text-sm mt-2" style={{ color: "var(--wc-gray-400)" }}>Click a team below →</div>
             )}
             {selectingSlot === "A" && (
-              <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#00ff87] animate-pulse" />
+              <div
+                className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse"
+                style={{ background: "var(--wc-gold)" }}
+              />
             )}
           </button>
 
           {/* VS */}
           <div className="flex items-center justify-center">
             <div className="text-center">
-              <div className="text-4xl font-extrabold text-white/20 tracking-tighter">VS</div>
+              <div
+                className="text-4xl font-extrabold tracking-tighter"
+                style={{ fontFamily: "'Aldrich', sans-serif", color: "var(--wc-gold)" }}
+              >
+                VS
+              </div>
               {teamA && teamB && (
                 <button
                   onClick={analyze}
-                  className="mt-4 px-6 py-3 bg-[#00ff87] text-black rounded-xl font-bold text-sm hover:bg-[#00e87a] transition-colors"
+                  className="mt-4 px-6 py-3 rounded font-bold text-sm transition-colors"
+                  style={{
+                    background: "var(--wc-gold)",
+                    color: "var(--wc-black)",
+                    fontFamily: "'Aldrich', sans-serif",
+                    border: "2px solid var(--wc-gold)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "var(--wc-gold-dark)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--wc-gold-dark)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "var(--wc-gold)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--wc-gold)";
+                  }}
                 >
                   Analyze →
                 </button>
@@ -132,28 +193,35 @@ export default function TeamSelector() {
           {/* Team B slot */}
           <button
             onClick={() => setSelectingSlot("B")}
-            className={cn(
-              "relative rounded-2xl border p-6 text-left transition-all duration-200",
-              selectingSlot === "B"
-                ? "border-[#00ff87] bg-[#00ff87]/5"
-                : "border-white/10 bg-white/5 hover:border-white/20",
-              teamB ? "" : "opacity-60"
-            )}
+            className="relative rounded-2xl border p-6 text-left transition-all duration-200"
+            style={{
+              borderColor: selectingSlot === "B" ? "var(--wc-gold)" : "var(--wc-gray-700)",
+              background: selectingSlot === "B" ? "rgba(255,219,0,0.08)" : "var(--wc-gray-900)",
+              opacity: teamB ? 1 : 0.7,
+            }}
           >
-            <div className="text-xs text-white/40 font-['Space_Mono'] mb-3">TEAM B</div>
+            <div className="text-xs mb-3 font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>TEAM B</div>
             {teamB ? (
               <>
                 <div className="text-4xl mb-2">{teamB.flagEmoji}</div>
-                <div className="text-xl font-bold">{teamB.name}</div>
-                <div className="text-sm text-white/50">
+                <div
+                  className="text-xl font-bold"
+                  style={{ fontFamily: "'Aldrich', sans-serif" }}
+                >
+                  {teamB.name}
+                </div>
+                <div className="text-sm mt-0.5" style={{ color: "var(--wc-gray-400)" }}>
                   FIFA #{teamB.fifaRanking} · {teamB.tla}
                 </div>
               </>
             ) : (
-              <div className="text-white/30 text-sm mt-2">Click a team below →</div>
+              <div className="text-sm mt-2" style={{ color: "var(--wc-gray-400)" }}>Click a team below →</div>
             )}
             {selectingSlot === "B" && (
-              <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#00ff87] animate-pulse" />
+              <div
+                className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse"
+                style={{ background: "var(--wc-gold)" }}
+              />
             )}
           </button>
         </div>
@@ -165,17 +233,24 @@ export default function TeamSelector() {
             placeholder="Search teams..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[#00ff87]/50 transition-colors font-['Space_Mono']"
+            className="flex-1 rounded px-4 py-2.5 text-sm text-white placeholder-[#888] outline-none transition-colors"
+            style={{
+              background: "var(--wc-gray-800)",
+              border: "1px solid var(--wc-gray-700)",
+              fontFamily: "'Noto Sans', sans-serif",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(255,219,0,0.5)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--wc-gray-700)")}
           />
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setConfFilter("ALL")}
-              className={cn(
-                "px-3 py-2 rounded-lg text-xs font-bold transition-colors",
-                confFilter === "ALL"
-                  ? "bg-[#00ff87] text-black"
-                  : "bg-white/5 text-white/50 hover:bg-white/10"
-              )}
+              className="px-3 py-2 rounded text-xs font-bold transition-colors"
+              style={{
+                background: confFilter === "ALL" ? "var(--wc-gold)" : "var(--wc-gray-800)",
+                color: confFilter === "ALL" ? "var(--wc-black)" : "var(--wc-gray-400)",
+                border: `1px solid ${confFilter === "ALL" ? "var(--wc-gold)" : "var(--wc-gray-700)"}`,
+              }}
             >
               All
             </button>
@@ -183,12 +258,12 @@ export default function TeamSelector() {
               <button
                 key={c}
                 onClick={() => setConfFilter(c)}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-xs font-bold transition-colors",
-                  confFilter === c
-                    ? "bg-[#00ff87] text-black"
-                    : "bg-white/5 text-white/50 hover:bg-white/10"
-                )}
+                className="px-3 py-2 rounded text-xs font-bold transition-colors"
+                style={{
+                  background: confFilter === c ? "var(--wc-gold)" : "var(--wc-gray-800)",
+                  color: confFilter === c ? "var(--wc-black)" : "var(--wc-gray-400)",
+                  border: `1px solid ${confFilter === c ? "var(--wc-gold)" : "var(--wc-gray-700)"}`,
+                }}
               >
                 {c}
               </button>
@@ -211,20 +286,23 @@ export default function TeamSelector() {
                   (selectingSlot === "A" && teamB?.tla === team.tla) ||
                   (selectingSlot === "B" && teamA?.tla === team.tla)
                 }
-                className={cn(
-                  "rounded-xl border p-3 text-left transition-all duration-150 group",
-                  isSelectedA &&
-                    "border-[#00ff87] bg-[#00ff87]/10",
-                  isSelectedB &&
-                    "border-blue-400 bg-blue-400/10",
-                  !isSelected &&
-                    "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10",
-                  "disabled:opacity-30 disabled:cursor-not-allowed"
-                )}
+                className="rounded border p-3 text-left transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  background: isSelectedA
+                    ? "rgba(255,219,0,0.08)"
+                    : isSelectedB
+                    ? "rgba(255,255,255,0.05)"
+                    : "var(--wc-gray-900)",
+                  borderColor: isSelectedA
+                    ? "var(--wc-gold)"
+                    : isSelectedB
+                    ? "var(--wc-white)"
+                    : "var(--wc-gray-700)",
+                }}
               >
                 <div className="text-2xl mb-1">{team.flagEmoji}</div>
                 <div className="text-xs font-bold truncate">{team.name}</div>
-                <div className="text-[10px] text-white/40 font-['Space_Mono']">
+                <div className="text-[10px] font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
                   #{team.fifaRanking}
                 </div>
               </button>
@@ -233,7 +311,7 @@ export default function TeamSelector() {
         </div>
 
         {filtered.length === 0 && (
-          <div className="text-center text-white/30 py-12 font-['Space_Mono'] text-sm">
+          <div className="text-center py-12 font-['Space_Mono'] text-sm" style={{ color: "var(--wc-gray-400)" }}>
             No teams found for &quot;{search}&quot;
           </div>
         )}

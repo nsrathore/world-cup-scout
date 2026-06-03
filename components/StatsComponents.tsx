@@ -38,7 +38,7 @@ export function FormStrip({ form, label, align = "left" }: FormStripProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", align === "right" && "items-end")}>
       {label && (
-        <span className="text-[10px] text-white/40 font-['Space_Mono'] uppercase tracking-wider">
+        <span className="text-[10px] uppercase tracking-wider font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
           {label}
         </span>
       )}
@@ -67,8 +67,8 @@ export function StatBar({
   valueB,
   maxValue,
   format = (v) => String(v),
-  colorA = "#00ff87",
-  colorB = "#3b82f6",
+  colorA = "#FFDB00",
+  colorB = "#FFFFFF",
 }: StatBarProps) {
   const max = maxValue ?? Math.max(valueA, valueB, 1);
   const pctA = Math.round((valueA / max) * 100);
@@ -76,24 +76,24 @@ export function StatBar({
 
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs text-white/50 font-['Space_Mono']">
+      <div className="flex justify-between text-xs font-['Space_Mono']" style={{ color: "#888888" }}>
         <span style={{ color: colorA }}>{format(valueA)}</span>
-        <span className="text-white/30">{label}</span>
+        <span>{label}</span>
         <span style={{ color: colorB }}>{format(valueB)}</span>
       </div>
       <div className="flex gap-1 h-1.5">
         {/* Team A bar (right-aligned) */}
-        <div className="flex-1 bg-white/5 rounded-full overflow-hidden flex justify-end">
+        <div className="flex-1 rounded-full overflow-hidden flex justify-end" style={{ background: "var(--wc-gray-700)" }}>
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pctA}%`, background: colorA, opacity: 0.8 }}
+            style={{ width: `${pctA}%`, background: colorA, opacity: 0.85 }}
           />
         </div>
         {/* Team B bar (left-aligned) */}
-        <div className="flex-1 bg-white/5 rounded-full overflow-hidden">
+        <div className="flex-1 rounded-full overflow-hidden" style={{ background: "var(--wc-gray-700)" }}>
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pctB}%`, background: colorB, opacity: 0.8 }}
+            style={{ width: `${pctB}%`, background: colorB, opacity: 0.85 }}
           />
         </div>
       </div>

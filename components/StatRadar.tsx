@@ -38,32 +38,32 @@ export default function StatRadar({ teamA, teamB, statsA, statsB }: StatRadarPro
       <ResponsiveContainer width="100%" height={260}>
         <RadarChart data={data} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
           <PolarGrid
-            stroke="rgba(255,255,255,0.1)"
+            stroke="rgba(255,255,255,0.08)"
             strokeDasharray="3 3"
           />
           <PolarAngleAxis
             dataKey="axis"
-            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12, fontFamily: "Space Mono" }}
+            tick={{ fill: "#888888", fontSize: 12, fontFamily: "Noto Sans, sans-serif" }}
           />
           <Radar
             name={teamA.name}
             dataKey={teamA.tla}
-            stroke="#00ff87"
-            fill="#00ff87"
+            stroke="#FFDB00"
+            fill="#FFDB00"
             fillOpacity={0.15}
             strokeWidth={2}
           />
           <Radar
             name={teamB.name}
             dataKey={teamB.tla}
-            stroke="#3b82f6"
-            fill="#3b82f6"
-            fillOpacity={0.15}
+            stroke="#FFFFFF"
+            fill="#FFFFFF"
+            fillOpacity={0.12}
             strokeWidth={2}
           />
           <Legend
             formatter={(value) => (
-              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{value}</span>
+              <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "Noto Sans, sans-serif" }}>{value}</span>
             )}
           />
         </RadarChart>
