@@ -261,7 +261,7 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                     style={{ background: "var(--wc-gray-900)", borderColor: "var(--wc-gold)" }}
                   >
                     <div className="mb-1" style={{ color: "var(--wc-gray-400)" }}>
-                      All-time record
+                      H2H record (last 5 yrs)
                     </div>
                     <div className="flex justify-center gap-3">
                       <span style={{ color: "var(--wc-gold)" }}>{h2hData.teamA.wins}W</span>

@@ -61,16 +61,25 @@ async function fetchAF(endpoint: string): Promise<AFResponse> {
   const res = await fetch(url, {
     headers: {
       "x-rapidapi-key": API_KEY,
+      "x-apisports-key": API_KEY,
       "x-rapidapi-host": "v3.football.api-sports.io",
     },
-    // Same revalidation window as the football-data client
     next: { revalidate: 21600 },
   });
 
   if (!res.ok) {
     throw new Error(`api-football error [${res.status}]: ${await res.text()}`);
   }
-  return res.json() as Promise<AFResponse>;
+
+  const data = await res.json() as AFResponse;
+
+  // api-football returns HTTP 200 even for auth/rate-limit errors; check body
+  const { errors } = data;
+  if (errors && (Array.isArray(errors) ? errors.length > 0 : Object.keys(errors as Record<string, unknown>).length > 0)) {
+    throw new Error(`api-football API error: ${JSON.stringify(errors)}`);
+  }
+
+  return data;
 }
 
 const FINISHED_STATUSES = new Set(["FT", "AET", "PEN"]);
@@ -182,17 +191,33 @@ export async function getH2HAF(
     [teamBApiId, teamBFDId],
   ]);
 
-  // No season filter — returns the full historical record
-  const data = await fetchAF(
-    `/fixtures/headtohead?h2h=${teamAApiId}-${teamBApiId}`
+  // Free tier requires ?season= — a parameter-free query returns only upcoming
+  // fixtures (none of which are FINISHED), so we fetch the last 5 seasons in
+  // parallel and merge the results.
+  const currentYear = new Date().getFullYear();
+  const seasons = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  const settled = await Promise.allSettled(
+    seasons.map((season) =>
+      fetchAF(`/fixtures/headtohead?h2h=${teamAApiId}-${teamBApiId}&season=${season}`)
+    )
   );
 
-  const allH2H = data.response
-    .filter((f) => FINISHED_STATUSES.has(f.fixture.status.short))
-    .sort(
-      (a, b) =>
-        new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime()
-    );
+  const seen = new Set<number>();
+  const allH2H: AFFixtureEntry[] = [];
+
+  for (const result of settled) {
+    if (result.status === "rejected") continue;
+    for (const f of result.value.response) {
+      if (seen.has(f.fixture.id) || !FINISHED_STATUSES.has(f.fixture.status.short)) continue;
+      seen.add(f.fixture.id);
+      allH2H.push(f);
+    }
+  }
+
+  allH2H.sort(
+    (a, b) => new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime()
+  );
 
   let teamAWins = 0;
   let teamBWins = 0;
