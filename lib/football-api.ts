@@ -111,10 +111,14 @@ export async function getSquad(teamId: number) {
  */
 export async function getTeamFixtures(teamId: number, limit = 10) {
   const data = await fetchFootballData<FDMatchesResponse>(
-    `/teams/${teamId}/matches?status=FINISHED&limit=${limit}`
+    `/teams/${teamId}/matches?status=FINISHED`
   );
 
-  return data.matches.map(normalizeMatch);
+  // Free tier ignores `limit` param and returns oldest-first — sort newest-first then slice
+  const sorted = [...data.matches].sort(
+    (a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
+  );
+  return sorted.slice(0, limit).map(normalizeMatch);
 }
 
 /**
@@ -122,22 +126,34 @@ export async function getTeamFixtures(teamId: number, limit = 10) {
  * Uses a recent match of one team and fetches h2h from that match ID
  */
 export async function getH2H(teamAId: number, teamBId: number) {
-  // Get recent matches for teamA and look for matches vs teamB
   const data = await fetchFootballData<FDMatchesResponse>(
-    `/teams/${teamAId}/matches?status=FINISHED&limit=50`
+    `/teams/${teamAId}/matches?status=FINISHED`
   );
 
-  const h2hMatches = data.matches.filter(
-    (m) =>
-      (m.homeTeam.id === teamAId && m.awayTeam.id === teamBId) ||
-      (m.homeTeam.id === teamBId && m.awayTeam.id === teamAId)
+  const isH2H = (m: FDMatch) =>
+    (m.homeTeam.id === teamAId && m.awayTeam.id === teamBId) ||
+    (m.homeTeam.id === teamBId && m.awayTeam.id === teamAId);
+
+  let allH2H = data.matches.filter(isH2H);
+
+  // If nothing found from team A's side, try team B's match history
+  if (allH2H.length === 0) {
+    const dataB = await fetchFootballData<FDMatchesResponse>(
+      `/teams/${teamBId}/matches?status=FINISHED`
+    );
+    allH2H = dataB.matches.filter(isH2H);
+  }
+
+  // Sort newest-first
+  allH2H.sort(
+    (a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
   );
 
   let teamAWins = 0;
   let teamBWins = 0;
   let draws = 0;
 
-  for (const match of h2hMatches) {
+  for (const match of allH2H) {
     const { home, away } = match.score.fullTime;
     if (home === null || away === null) continue;
 
@@ -155,8 +171,8 @@ export async function getH2H(teamAId: number, teamBId: number) {
     teamA: { id: teamAId, wins: teamAWins },
     teamB: { id: teamBId, wins: teamBWins },
     draws,
-    totalMatches: h2hMatches.length,
-    recentMatches: h2hMatches.slice(0, 5).map(normalizeMatch),
+    totalMatches: allH2H.length,
+    recentMatches: allH2H.slice(0, 5).map(normalizeMatch),
   };
 }
 

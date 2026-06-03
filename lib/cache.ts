@@ -90,11 +90,13 @@ export async function withCache<T>(
 
 // ─── Typed cache helpers ──────────────────────────────────────────────────
 
+// Bump this string whenever IDs or data shapes change — invalidates all cached entries
+const CACHE_V = "v2";
+
 export const CacheKeys = {
-  squad: (teamId: number) => `squad:${teamId}`,
-  fixtures: (teamId: number) => `fixtures:${teamId}`,
-  h2h: (teamAId: number, teamBId: number) =>
-    `h2h:${Math.min(teamAId, teamBId)}_${Math.max(teamAId, teamBId)}`,
-  playerStats: (playerId: number) => `player_stats:${playerId}`,
-  standings: () => `wc2026:standings`,
+  squad:       (teamId: number)                   => `${CACHE_V}:squad:${teamId}`,
+  fixtures:    (teamId: number)                   => `${CACHE_V}:fixtures:${teamId}`,
+  h2h:         (teamAId: number, teamBId: number) => `${CACHE_V}:h2h:${Math.min(teamAId, teamBId)}_${Math.max(teamAId, teamBId)}`,
+  playerStats: (playerId: number)                 => `${CACHE_V}:player_stats:${playerId}`,
+  standings:   ()                                 => `${CACHE_V}:wc2026:standings`,
 };

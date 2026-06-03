@@ -1,7 +1,24 @@
 "use client";
 
+import { motion, type Variants } from "framer-motion";
 import { MatchResult } from "@/types";
 import { cn } from "@/lib/utils";
+
+const FADE_UP: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+  },
+};
+
+const STAGGER: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+// ─── FormBadge ──────────────────────────────────────────────────────────────
 
 interface FormBadgeProps {
   result: MatchResult;
@@ -16,17 +33,21 @@ export function FormBadge({ result, size = "md" }: FormBadgeProps) {
   };
 
   return (
-    <span
+    <motion.span
       className={cn(
-        "inline-flex items-center justify-center rounded font-bold border font-['Space_Mono']",
+        "inline-flex items-center justify-center rounded font-bold border font-['Space_Mono'] will-change-transform",
         colors[result],
         size === "sm" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs"
       )}
+      whileHover={{ scale: 1.2, rotate: [-5, 5, 0] as number[] }}
+      transition={{ duration: 0.3 }}
     >
       {result}
-    </span>
+    </motion.span>
   );
 }
+
+// ─── FormStrip ──────────────────────────────────────────────────────────────
 
 interface FormStripProps {
   form: MatchResult[];
@@ -38,18 +59,30 @@ export function FormStrip({ form, label, align = "left" }: FormStripProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", align === "right" && "items-end")}>
       {label && (
-        <span className="text-[10px] uppercase tracking-wider font-['Space_Mono']" style={{ color: "var(--wc-gray-400)" }}>
+        <span
+          className="text-[10px] uppercase tracking-wider font-['Space_Mono']"
+          style={{ color: "var(--wc-gray-400)" }}
+        >
           {label}
         </span>
       )}
-      <div className={cn("flex gap-1", align === "right" && "flex-row-reverse")}>
+      <motion.div
+        className={cn("flex gap-1", align === "right" && "flex-row-reverse")}
+        variants={STAGGER}
+        initial="hidden"
+        animate="visible"
+      >
         {form.slice(0, 5).map((r, i) => (
-          <FormBadge key={i} result={r} size="sm" />
+          <motion.div key={i} variants={FADE_UP}>
+            <FormBadge result={r} size="sm" />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }
+
+// ─── StatBar ────────────────────────────────────────────────────────────────
 
 interface StatBarProps {
   label: string;
@@ -82,18 +115,30 @@ export function StatBar({
         <span style={{ color: colorB }}>{format(valueB)}</span>
       </div>
       <div className="flex gap-1 h-1.5">
-        {/* Team A bar (right-aligned) */}
-        <div className="flex-1 rounded-full overflow-hidden flex justify-end" style={{ background: "var(--wc-gray-700)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pctA}%`, background: colorA, opacity: 0.85 }}
+        {/* Team A bar — right-aligned, animates from 0 */}
+        <div
+          className="flex-1 rounded-full overflow-hidden flex justify-end"
+          style={{ background: "var(--wc-gray-700)" }}
+        >
+          <motion.div
+            className="h-full rounded-full"
+            initial={{ width: "0%" }}
+            animate={{ width: `${pctA}%` }}
+            transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+            style={{ background: colorA, opacity: 0.85 }}
           />
         </div>
-        {/* Team B bar (left-aligned) */}
-        <div className="flex-1 rounded-full overflow-hidden" style={{ background: "var(--wc-gray-700)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pctB}%`, background: colorB, opacity: 0.85 }}
+        {/* Team B bar — left-aligned, animates from 0 */}
+        <div
+          className="flex-1 rounded-full overflow-hidden"
+          style={{ background: "var(--wc-gray-700)" }}
+        >
+          <motion.div
+            className="h-full rounded-full"
+            initial={{ width: "0%" }}
+            animate={{ width: `${pctB}%` }}
+            transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+            style={{ background: colorB, opacity: 0.85 }}
           />
         </div>
       </div>

@@ -6,7 +6,7 @@ export const WORLD_CUP_TEAMS: WorldCupTeam[] = [
   // CONMEBOL
   { tla: "BRA", name: "Brazil",    group: "D", footballDataId: 764,  flagEmoji: "🇧🇷", fifaRanking: 5,  confederation: "CONMEBOL" },
   { tla: "ARG", name: "Argentina", group: "A", footballDataId: 762,  flagEmoji: "🇦🇷", fifaRanking: 1,  confederation: "CONMEBOL" },
-  { tla: "URU", name: "Uruguay",   group: "C", footballDataId: 788,  flagEmoji: "🇺🇾", fifaRanking: 14, confederation: "CONMEBOL" },
+  { tla: "URU", name: "Uruguay",   group: "C", footballDataId: 803,  flagEmoji: "🇺🇾", fifaRanking: 14, confederation: "CONMEBOL" },
   { tla: "COL", name: "Colombia",  group: "F", footballDataId: 771,  flagEmoji: "🇨🇴", fifaRanking: 9,  confederation: "CONMEBOL" },
   { tla: "ECU", name: "Ecuador",   group: "B", footballDataId: 780,  flagEmoji: "🇪🇨", fifaRanking: 32, confederation: "CONMEBOL" },
   { tla: "VEN", name: "Venezuela", group: "H", footballDataId: 791,  flagEmoji: "🇻🇪", fifaRanking: 30, confederation: "CONMEBOL" },
@@ -33,17 +33,17 @@ export const WORLD_CUP_TEAMS: WorldCupTeam[] = [
   { tla: "USA", name: "USA",       group: "C", footballDataId: 768,  flagEmoji: "🇺🇸", fifaRanking: 16, confederation: "CONCACAF" },
   { tla: "MEX", name: "Mexico",    group: "A", footballDataId: 758,  flagEmoji: "🇲🇽", fifaRanking: 17, confederation: "CONCACAF" },
   { tla: "CAN", name: "Canada",    group: "B", footballDataId: 772,  flagEmoji: "🇨🇦", fifaRanking: 49, confederation: "CONCACAF" },
-  { tla: "PAN", name: "Panama",    group: "D", footballDataId: 780,  flagEmoji: "🇵🇦", fifaRanking: 43, confederation: "CONCACAF" },
+  { tla: "PAN", name: "Panama",    group: "D", footballDataId: 814,  flagEmoji: "🇵🇦", fifaRanking: 43, confederation: "CONCACAF" },
   { tla: "JAM", name: "Jamaica",   group: "E", footballDataId: 785,  flagEmoji: "🇯🇲", fifaRanking: 57, confederation: "CONCACAF" },
   { tla: "HON", name: "Honduras",  group: "G", footballDataId: 783,  flagEmoji: "🇭🇳", fifaRanking: 78, confederation: "CONCACAF" },
   // CAF (Africa)
   { tla: "MAR", name: "Morocco",   group: "F", footballDataId: 804,  flagEmoji: "🇲🇦", fifaRanking: 14, confederation: "CAF" },
   { tla: "SEN", name: "Senegal",   group: "H", footballDataId: 806,  flagEmoji: "🇸🇳", fifaRanking: 20, confederation: "CAF" },
-  { tla: "EGY", name: "Egypt",     group: "A", footballDataId: 803,  flagEmoji: "🇪🇬", fifaRanking: 34, confederation: "CAF" },
+  { tla: "EGY", name: "Egypt",     group: "A", footballDataId: 801,  flagEmoji: "🇪🇬", fifaRanking: 34, confederation: "CAF" },
   { tla: "NGA", name: "Nigeria",   group: "B", footballDataId: 805,  flagEmoji: "🇳🇬", fifaRanking: 28, confederation: "CAF" },
   { tla: "CMR", name: "Cameroon",  group: "C", footballDataId: 802,  flagEmoji: "🇨🇲", fifaRanking: 43, confederation: "CAF" },
   { tla: "GHA", name: "Ghana",     group: "D", footballDataId: 808,  flagEmoji: "🇬🇭", fifaRanking: 66, confederation: "CAF" },
-  { tla: "CIV", name: "Côte d'Ivoire", group: "E", footballDataId: 801, flagEmoji: "🇨🇮", fifaRanking: 52, confederation: "CAF" },
+  { tla: "CIV", name: "Côte d'Ivoire", group: "E", footballDataId: 892, flagEmoji: "🇨🇮", fifaRanking: 52, confederation: "CAF" },
   { tla: "ALG", name: "Algeria",   group: "G", footballDataId: 800,  flagEmoji: "🇩🇿", fifaRanking: 35, confederation: "CAF" },
   // AFC (Asia)
   { tla: "JPN", name: "Japan",     group: "E", footballDataId: 792,  flagEmoji: "🇯🇵", fifaRanking: 15, confederation: "AFC" },
@@ -52,7 +52,7 @@ export const WORLD_CUP_TEAMS: WorldCupTeam[] = [
   { tla: "AUS", name: "Australia", group: "H", footballDataId: 747,  flagEmoji: "🇦🇺", fifaRanking: 24, confederation: "AFC" },
   { tla: "SAU", name: "Saudi Arabia", group: "A", footballDataId: 798, flagEmoji: "🇸🇦", fifaRanking: 56, confederation: "AFC" },
   { tla: "QAT", name: "Qatar",     group: "B", footballDataId: 833,  flagEmoji: "🇶🇦", fifaRanking: 37, confederation: "AFC" },
-  { tla: "IRQ", name: "Iraq",      group: "C", footballDataId: 794,  flagEmoji: "🇮🇶", fifaRanking: 58, confederation: "AFC" },
+  { tla: "IRQ", name: "Iraq",      group: "C", footballDataId: 828,  flagEmoji: "🇮🇶", fifaRanking: 58, confederation: "AFC" },
   { tla: "UZB", name: "Uzbekistan", group: "D", footballDataId: 831, flagEmoji: "🇺🇿", fifaRanking: 68, confederation: "AFC" },
   // OFC / Play-off
   { tla: "NZL", name: "New Zealand", group: "H", footballDataId: 751, flagEmoji: "🇳🇿", fifaRanking: 90, confederation: "OFC" },
