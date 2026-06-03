@@ -58,19 +58,22 @@ interface BSDEventsResponse {
 }
 
 interface BSDSquadPlayer {
-  id: number;
+  id: number;           // squad-entry id
+  team_id: number;
   name: string;
-  position: string;
+  jersey_number: number | null;
+  position: string;     // "GK" | "DF" | "MF" | "FW"
+  status: string;       // "official" | "preliminary"
   date_of_birth: string;
-  nationality: string;
-  shirt_number: number | null;
   club: string;
+  club_country: string;
+  player_id: number | null;
 }
 
-interface BSDSquadResponse {
-  team_id: number;
-  team_name: string;
-  players: BSDSquadPlayer[];
+interface BSDSquadListResponse {
+  count: number;
+  next: string | null;
+  results: BSDSquadPlayer[];
 }
 
 interface BSDEventStatsSide {
@@ -156,23 +159,30 @@ function normalizeBSDEvent(e: BSDEvent): Match {
 
 /**
  * Fetch the World Cup squad for a team by their BSD team ID.
- * Endpoint: GET /api/v2/worldcup/squads/{bsdTeamId}/
+ * Endpoint: GET /api/v2/worldcup/squads/?team_id={bsdTeamId}&limit=100
+ * Returns only "official" call-ups (drops "preliminary" players).
  */
 export async function getSquad(bsdTeamId: number) {
-  const data = await fetchBSD<BSDSquadResponse>(`/worldcup/squads/${bsdTeamId}/`);
+  const data = await fetchBSD<BSDSquadListResponse>(
+    `/worldcup/squads/?team_id=${bsdTeamId}&limit=100`
+  );
 
-  return {
-    teamId: bsdTeamId,
-    teamName: data.team_name,
-    coach: undefined, // BSD WC squad endpoint does not include coach data
-    players: (data.players ?? []).map((p) => ({
-      id: p.id,
+  const players = (data.results ?? [])
+    .filter((p) => p.status === "official")
+    .map((p) => ({
+      id: p.player_id ?? p.id,
       name: p.name,
       position: normalizePosition(p.position),
       dateOfBirth: p.date_of_birth,
-      nationality: p.nationality,
-      shirtNumber: p.shirt_number ?? undefined,
-    })),
+      nationality: p.club_country || "",
+      shirtNumber: p.jersey_number ?? undefined,
+    }));
+
+  return {
+    teamId: bsdTeamId,
+    teamName: "",   // not in BSD squad response; callers use WorldCupTeam.name
+    coach: undefined,
+    players,
   };
 }
 

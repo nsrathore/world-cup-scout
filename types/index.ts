@@ -160,8 +160,6 @@ export interface WorldCupTeam {
   tla: string;
   name: string;
   group: string;
-  footballDataId: number;
-  apiFootballId: number;
   bsdTeamId: number;
   flagEmoji: string;
   fifaRanking: number;
