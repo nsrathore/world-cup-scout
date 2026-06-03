@@ -85,6 +85,8 @@ interface FDH2HResponse {
 
 // ─── Public API ────────────────────────────────────────────────────────────
 
+import { getTeamFixturesAF, getH2HAF } from "./api-football";
+
 /**
  * Get 23-man squad for a team by their football-data.org team ID
  */
@@ -107,14 +109,23 @@ export async function getSquad(teamId: number) {
 }
 
 /**
- * Get last N finished matches for a team
+ * Get last N finished matches for a team.
+ * Uses api-football.com when apiFootballId is supplied (preferred — football-data.org
+ * free tier scopes results to WC-competition only, giving 0 results before WC 2026).
  */
-export async function getTeamFixtures(teamId: number, limit = 10) {
+export async function getTeamFixtures(
+  teamId: number,
+  limit = 10,
+  apiFootballId?: number
+) {
+  if (apiFootballId) {
+    return getTeamFixturesAF(apiFootballId, teamId, limit);
+  }
+
+  // Fallback: football-data.org (returns WC matches only on free tier)
   const data = await fetchFootballData<FDMatchesResponse>(
     `/teams/${teamId}/matches?status=FINISHED`
   );
-
-  // Free tier ignores `limit` param and returns oldest-first — sort newest-first then slice
   const sorted = [...data.matches].sort(
     (a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
   );
@@ -125,7 +136,20 @@ export async function getTeamFixtures(teamId: number, limit = 10) {
  * Get head-to-head record between two teams
  * Uses a recent match of one team and fetches h2h from that match ID
  */
-export async function getH2H(teamAId: number, teamBId: number) {
+/**
+ * Get head-to-head record between two teams.
+ * Uses api-football.com when both apiFootballId values are supplied (preferred).
+ */
+export async function getH2H(
+  teamAId: number,
+  teamBId: number,
+  teamAApiId?: number,
+  teamBApiId?: number
+) {
+  if (teamAApiId && teamBApiId) {
+    return getH2HAF(teamAApiId, teamAId, teamBApiId, teamBId);
+  }
+
   const data = await fetchFootballData<FDMatchesResponse>(
     `/teams/${teamAId}/matches?status=FINISHED`
   );

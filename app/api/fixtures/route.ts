@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const fixtures = await withCache(
       CacheKeys.fixtures(team.footballDataId),
       TTL.FIXTURES,
-      () => getTeamFixtures(team.footballDataId, limit)
+      () => getTeamFixtures(team.footballDataId, limit, team.apiFootballId)
     );
 
     return NextResponse.json({ team, fixtures });

@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
     const h2h = await withCache(
       CacheKeys.h2h(teamA.footballDataId, teamB.footballDataId),
       TTL.H2H,
-      () => getH2H(teamA.footballDataId, teamB.footballDataId)
+      () => getH2H(
+        teamA.footballDataId, teamB.footballDataId,
+        teamA.apiFootballId,  teamB.apiFootballId
+      )
     );
 
     return NextResponse.json({ teamA, teamB, h2h });

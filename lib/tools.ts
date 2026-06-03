@@ -124,14 +124,17 @@ export async function executeTool(
       const matches = await withCache(
         CacheKeys.fixtures(team.footballDataId),
         TTL.FIXTURES,
-        () => getTeamFixtures(team.footballDataId, limit)
+        () => getTeamFixtures(team.footballDataId, limit, team.apiFootballId)
       );
+
+      // api-football fixtures have IDs remapped to footballDataId — comparison is always correct
+      const teamFDId = team.footballDataId;
 
       // Derive form string
       const formString = matches.slice(0, 5).map((m) => {
         const { home, away } = m.score.fullTime;
         if (home === null || away === null) return "?";
-        const isHome = m.homeTeam.id === team.footballDataId;
+        const isHome = m.homeTeam.id === teamFDId;
         const teamGoals = isHome ? home : away;
         const oppGoals = isHome ? away : home;
         if (teamGoals > oppGoals) return "W";
@@ -140,13 +143,13 @@ export async function executeTool(
       });
 
       const goalsScored = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === team.footballDataId;
+        const isHome = m.homeTeam.id === teamFDId;
         const g = isHome ? m.score.fullTime.home : m.score.fullTime.away;
         return sum + (g ?? 0);
       }, 0);
 
       const goalsConceded = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === team.footballDataId;
+        const isHome = m.homeTeam.id === teamFDId;
         const g = isHome ? m.score.fullTime.away : m.score.fullTime.home;
         return sum + (g ?? 0);
       }, 0);
@@ -159,7 +162,7 @@ export async function executeTool(
         goalsScored,
         goalsConceded,
         cleanSheets: matches.filter((m) => {
-          const isHome = m.homeTeam.id === team.footballDataId;
+          const isHome = m.homeTeam.id === teamFDId;
           const opp = isHome ? m.score.fullTime.away : m.score.fullTime.home;
           return opp === 0;
         }).length,
@@ -177,7 +180,10 @@ export async function executeTool(
       return withCache(
         CacheKeys.h2h(teamA.footballDataId, teamB.footballDataId),
         TTL.H2H,
-        () => getH2H(teamA.footballDataId, teamB.footballDataId)
+        () => getH2H(
+          teamA.footballDataId, teamB.footballDataId,
+          teamA.apiFootballId,  teamB.apiFootballId
+        )
       );
     }
 
@@ -190,16 +196,17 @@ export async function executeTool(
       const matches = await withCache(
         CacheKeys.fixtures(team.footballDataId),
         TTL.FIXTURES,
-        () => getTeamFixtures(team.footballDataId, 15)
+        () => getTeamFixtures(team.footballDataId, 15, team.apiFootballId)
       );
 
+      const statFDId = team.footballDataId;
       const goalsScored = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === team.footballDataId;
+        const isHome = m.homeTeam.id === statFDId;
         return sum + (isHome ? (m.score.fullTime.home ?? 0) : (m.score.fullTime.away ?? 0));
       }, 0);
 
       const goalsConceded = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === team.footballDataId;
+        const isHome = m.homeTeam.id === statFDId;
         return sum + (isHome ? (m.score.fullTime.away ?? 0) : (m.score.fullTime.home ?? 0));
       }, 0);
 
