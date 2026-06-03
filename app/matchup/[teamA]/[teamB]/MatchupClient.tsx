@@ -167,30 +167,30 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
     });
   }
 
-  const formA = getForm(fixturesA, teamA.footballDataId);
-  const formB = getForm(fixturesB, teamB.footballDataId);
+  const formA = getForm(fixturesA, teamA.bsdTeamId);
+  const formB = getForm(fixturesB, teamB.bsdTeamId);
 
   const goalsA =
     fixturesA.reduce((s, m) => {
-      const isHome = m.homeTeam.id === teamA.footballDataId;
+      const isHome = m.homeTeam.id === teamA.bsdTeamId;
       return s + ((isHome ? m.score.fullTime.home : m.score.fullTime.away) ?? 0);
     }, 0) / Math.max(fixturesA.length, 1);
 
   const concededA =
     fixturesA.reduce((s, m) => {
-      const isHome = m.homeTeam.id === teamA.footballDataId;
+      const isHome = m.homeTeam.id === teamA.bsdTeamId;
       return s + ((isHome ? m.score.fullTime.away : m.score.fullTime.home) ?? 0);
     }, 0) / Math.max(fixturesA.length, 1);
 
   const goalsB =
     fixturesB.reduce((s, m) => {
-      const isHome = m.homeTeam.id === teamB.footballDataId;
+      const isHome = m.homeTeam.id === teamB.bsdTeamId;
       return s + ((isHome ? m.score.fullTime.home : m.score.fullTime.away) ?? 0);
     }, 0) / Math.max(fixturesB.length, 1);
 
   const concededB =
     fixturesB.reduce((s, m) => {
-      const isHome = m.homeTeam.id === teamB.footballDataId;
+      const isHome = m.homeTeam.id === teamB.bsdTeamId;
       return s + ((isHome ? m.score.fullTime.away : m.score.fullTime.home) ?? 0);
     }, 0) / Math.max(fixturesB.length, 1);
 
