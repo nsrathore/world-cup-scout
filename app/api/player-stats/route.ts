@@ -1,7 +1,7 @@
 // GET /api/player-stats?tla=BRA
-// Returns top 5 players by goals + rating for the team
+// Returns top 5 players by goals + rating for the team (via BSD)
 import { NextRequest, NextResponse } from "next/server";
-import { getTopPlayerStatsAF } from "@/lib/api-football";
+import { getBSDTopPlayers } from "@/lib/bsd-api";
 import { getTeamByTla } from "@/lib/teams-data";
 import { withCache, TTL } from "@/lib/cache";
 
@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   if (!team) return NextResponse.json({ error: `Unknown team: ${tla}` }, { status: 404 });
   try {
     const players = await withCache(
-      `v2:player_stats_top:${team.apiFootballId}:${new Date().getFullYear()}`,
+      `v2:bsd_player_stats_top:${team.bsdTeamId}`,
       TTL.STATS,
-      () => getTopPlayerStatsAF(team.apiFootballId)
+      () => getBSDTopPlayers(team.bsdTeamId)
     );
     return NextResponse.json({ team, players });
   } catch {

@@ -162,6 +162,7 @@ export interface WorldCupTeam {
   group: string;
   footballDataId: number;
   apiFootballId: number;
+  bsdTeamId: number;
   flagEmoji: string;
   fifaRanking: number;
   confederation: "UEFA" | "CONMEBOL" | "CONCACAF" | "CAF" | "AFC" | "OFC";

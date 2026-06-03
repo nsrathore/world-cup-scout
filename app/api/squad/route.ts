@@ -1,10 +1,10 @@
 /**
  * GET /api/squad?tla=BRA
- * Proxy for football-data.org squad endpoint with caching
+ * Fetches World Cup squad data from BSD with Redis caching.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSquad } from "@/lib/football-api";
+import { getSquad } from "@/lib/bsd-api";
 import { getTeamByTla } from "@/lib/teams-data";
 import { withCache, CacheKeys, TTL } from "@/lib/cache";
 
@@ -22,9 +22,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const squad = await withCache(
-      CacheKeys.squad(team.footballDataId),
+      CacheKeys.squad(team.bsdTeamId),
       TTL.SQUAD,
-      () => getSquad(team.footballDataId)
+      () => getSquad(team.bsdTeamId)
     );
 
     return NextResponse.json({ team, squad });

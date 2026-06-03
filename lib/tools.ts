@@ -11,10 +11,15 @@
  */
 
 import { ToolDefinition } from "@/types";
-import { getSquad, getTeamFixtures, getH2H } from "./football-api";
+import {
+  getSquad,
+  getTeamFixtures,
+  getH2H,
+  getBSDTeamAggStats,
+  getBSDTopPlayers,
+} from "./bsd-api";
 import { getTeamByTla } from "./teams-data";
 import { withCache, CacheKeys, TTL } from "./cache";
-import { getTeamStatsAF, getTopPlayerStatsAF } from "./api-football";
 
 // ─── Tool Definitions (sent to Claude on every request) ───────────────────
 
@@ -127,9 +132,9 @@ export async function executeTool(
       if (!team) throw new Error(`Unknown team: ${tla}`);
 
       return withCache(
-        CacheKeys.squad(team.footballDataId),
+        CacheKeys.squad(team.bsdTeamId),
         TTL.SQUAD,
-        () => getSquad(team.footballDataId)
+        () => getSquad(team.bsdTeamId)
       );
     }
 
@@ -140,19 +145,19 @@ export async function executeTool(
       const limit = Math.min(input.limit ?? 10, 20);
 
       const matches = await withCache(
-        CacheKeys.fixtures(team.footballDataId),
+        CacheKeys.fixtures(team.bsdTeamId),
         TTL.FIXTURES,
-        () => getTeamFixtures(team.footballDataId, limit, team.apiFootballId)
+        () => getTeamFixtures(team.bsdTeamId, limit)
       );
 
-      // api-football fixtures have IDs remapped to footballDataId — comparison is always correct
-      const teamFDId = team.footballDataId;
+      // BSD match objects carry BSD team IDs in homeTeam.id / awayTeam.id
+      const teamBsdId = team.bsdTeamId;
 
       // Derive form string
       const formString = matches.slice(0, 5).map((m) => {
         const { home, away } = m.score.fullTime;
         if (home === null || away === null) return "?";
-        const isHome = m.homeTeam.id === teamFDId;
+        const isHome = m.homeTeam.id === teamBsdId;
         const teamGoals = isHome ? home : away;
         const oppGoals = isHome ? away : home;
         if (teamGoals > oppGoals) return "W";
@@ -161,26 +166,26 @@ export async function executeTool(
       });
 
       const goalsScored = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === teamFDId;
+        const isHome = m.homeTeam.id === teamBsdId;
         const g = isHome ? m.score.fullTime.home : m.score.fullTime.away;
         return sum + (g ?? 0);
       }, 0);
 
       const goalsConceded = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === teamFDId;
+        const isHome = m.homeTeam.id === teamBsdId;
         const g = isHome ? m.score.fullTime.away : m.score.fullTime.home;
         return sum + (g ?? 0);
       }, 0);
 
       return {
-        teamId: team.footballDataId,
+        teamId: team.bsdTeamId,
         teamName: team.name,
         recentMatches: matches,
         formString,
         goalsScored,
         goalsConceded,
         cleanSheets: matches.filter((m) => {
-          const isHome = m.homeTeam.id === teamFDId;
+          const isHome = m.homeTeam.id === teamBsdId;
           const opp = isHome ? m.score.fullTime.away : m.score.fullTime.home;
           return opp === 0;
         }).length,
@@ -196,12 +201,9 @@ export async function executeTool(
       if (!teamB) throw new Error(`Unknown team: ${tlaB}`);
 
       return withCache(
-        CacheKeys.h2h(teamA.footballDataId, teamB.footballDataId),
+        CacheKeys.h2h(teamA.bsdTeamId, teamB.bsdTeamId),
         TTL.H2H,
-        () => getH2H(
-          teamA.footballDataId, teamB.footballDataId,
-          teamA.apiFootballId,  teamB.apiFootballId
-        )
+        () => getH2H(teamA.bsdTeamId, teamB.bsdTeamId)
       );
     }
 
@@ -210,51 +212,44 @@ export async function executeTool(
       const team = getTeamByTla(tla);
       if (!team) throw new Error(`Unknown team: ${tla}`);
 
-      // Derive stats from recent form
+      // Fetch recent fixtures to derive goals stats
       const matches = await withCache(
-        CacheKeys.fixtures(team.footballDataId),
+        CacheKeys.fixtures(team.bsdTeamId),
         TTL.FIXTURES,
-        () => getTeamFixtures(team.footballDataId, 15, team.apiFootballId)
+        () => getTeamFixtures(team.bsdTeamId, 15)
       );
 
-      const statFDId = team.footballDataId;
+      const teamBsdId = team.bsdTeamId;
       const goalsScored = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === statFDId;
+        const isHome = m.homeTeam.id === teamBsdId;
         return sum + (isHome ? (m.score.fullTime.home ?? 0) : (m.score.fullTime.away ?? 0));
       }, 0);
 
       const goalsConceded = matches.reduce((sum, m) => {
-        const isHome = m.homeTeam.id === statFDId;
+        const isHome = m.homeTeam.id === teamBsdId;
         return sum + (isHome ? (m.score.fullTime.away ?? 0) : (m.score.fullTime.home ?? 0));
       }, 0);
 
       const n = matches.length || 1;
 
-      // Try to get enhanced stats from api-football
-      let afStats: { possession: number | null; shotsOnTargetPerGame: number | null; passAccuracy: number | null; goalsPerGame: number | null; } | null = null;
-      if (team.apiFootballId) {
-        try {
-          afStats = await withCache(
-            `v2:team_stats:${team.apiFootballId}:${new Date().getFullYear()}`,
-            TTL.STATS,
-            () => getTeamStatsAF(team.apiFootballId, team.confederation)
-          );
-        } catch {
-          // api-football unavailable, continue with nulls
-        }
-      }
+      // Fetch possession, pass accuracy, and shots from BSD per-match stats
+      const stats = await withCache(
+        `v2:bsd_team_stats:${team.bsdTeamId}`,
+        TTL.STATS,
+        () => getBSDTeamAggStats(team.bsdTeamId)
+      );
 
       return {
-        teamId: team.footballDataId,
+        teamId: team.bsdTeamId,
         teamName: team.name,
         tla: team.tla,
         confederation: team.confederation,
         fifaRanking: team.fifaRanking,
-        goalsPerGame: afStats?.goalsPerGame ?? Math.round((goalsScored / n) * 100) / 100,
+        goalsPerGame: Math.round((goalsScored / n) * 100) / 100,
         goalsConcededPerGame: Math.round((goalsConceded / n) * 100) / 100,
-        possession: afStats?.possession ?? null,
-        shotsPerGame: afStats?.shotsOnTargetPerGame ?? null,
-        passAccuracy: afStats?.passAccuracy ?? null,
+        possession: stats.possession,
+        shotsPerGame: stats.shotsPerGame,
+        passAccuracy: stats.passAccuracy,
       };
     }
 
@@ -263,9 +258,9 @@ export async function executeTool(
       const team = getTeamByTla(tla);
       if (!team) throw new Error(`Unknown team: ${tla}`);
       return withCache(
-        `v2:player_stats_top:${team.apiFootballId}:${new Date().getFullYear()}`,
+        `v2:bsd_player_stats_top:${team.bsdTeamId}`,
         TTL.STATS,
-        () => getTopPlayerStatsAF(team.apiFootballId)
+        () => getBSDTopPlayers(team.bsdTeamId)
       );
     }
 

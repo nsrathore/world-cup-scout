@@ -1,9 +1,10 @@
 /**
  * GET /api/fixtures?tla=BRA&limit=10
+ * Fetches recent finished matches from BSD with Redis caching.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getTeamFixtures } from "@/lib/football-api";
+import { getTeamFixtures } from "@/lib/bsd-api";
 import { getTeamByTla } from "@/lib/teams-data";
 import { withCache, CacheKeys, TTL } from "@/lib/cache";
 
@@ -22,9 +23,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const fixtures = await withCache(
-      CacheKeys.fixtures(team.footballDataId),
+      CacheKeys.fixtures(team.bsdTeamId),
       TTL.FIXTURES,
-      () => getTeamFixtures(team.footballDataId, limit, team.apiFootballId)
+      () => getTeamFixtures(team.bsdTeamId, limit)
     );
 
     return NextResponse.json({ team, fixtures });
