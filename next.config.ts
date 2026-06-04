@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
+  // Fix workspace-root inference when a stray package-lock.json exists in a
+  // parent directory. Without this, Next.js/Turbopack loads .env.local from
+  // the wrong directory, making server-only env vars (ANTHROPIC_API_KEY) invisible.
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   images: {
     remotePatterns: [
       {

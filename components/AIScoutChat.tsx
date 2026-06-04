@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatMessage, AnalysisStreamChunk } from "@/types";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ interface AIScoutChatProps {
   teamBTla: string;
   teamAName: string;
   teamBName: string;
-  autoAnalyze?: boolean;
+  autoAnalyze?: boolean; // retained for API compatibility but no longer used
 }
 
 interface DisplayMessage {
@@ -18,6 +18,28 @@ interface DisplayMessage {
   content: string;
   isStreaming?: boolean;
   toolCalls?: string[];
+}
+
+// ─── Lightweight markdown → HTML renderer ────────────────────────────────────
+// Content comes exclusively from the Anthropic API — never from user input —
+// so dangerouslySetInnerHTML is safe here.
+function renderMarkdown(text: string): string {
+  return text
+    // Headers: ### and ##
+    .replace(/^### (.+)$/gm, '<p class="font-bold text-white mt-3 mb-1">$1</p>')
+    .replace(/^## (.+)$/gm, '<p class="font-bold text-white/90 text-base mt-4 mb-1">$1</p>')
+    // Bold: **text**
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+    // Italic: *text*
+    .replace(/\*(.+?)\*/g, '<em class="text-white/80">$1</em>')
+    // Bullet points: lines starting with "- " or "• "
+    .replace(/^[-•] (.+)$/gm, '<div class="flex gap-2 my-0.5"><span class="text-[#00ff87] flex-shrink-0">›</span><span>$1</span></div>')
+    // Numbered lists: "1. text" — capture number and text separately
+    .replace(/^(\d+)\. (.+)$/gm, '<div class="flex gap-2 my-0.5"><span class="text-[#00ff87] flex-shrink-0 font-mono text-xs mt-0.5">$1.</span><span>$2</span></div>')
+    // Double newline → paragraph gap
+    .replace(/\n\n/g, '<div class="mt-2"></div>')
+    // Single newline → line break
+    .replace(/\n/g, '<br/>');
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -32,40 +54,38 @@ export default function AIScoutChat({
   teamBTla,
   teamAName,
   teamBName,
-  autoAnalyze = true,
 }: AIScoutChatProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTools, setActiveTools] = useState<string[]>([]);
+  const [hasStarted, setHasStarted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const hasAutoAnalyzed = useRef(false);
 
-  useEffect(() => {
-    if (autoAnalyze && !hasAutoAnalyzed.current) {
-      hasAutoAnalyzed.current = true;
-      runAnalysis("", true);
-    }
-  }, []);
+  const SUGGESTED_QUESTIONS = [
+    `Who are the key players to watch in ${teamAName} vs ${teamBName}?`,
+    `What tactical system does ${teamAName} use and how does it match up against ${teamBName}?`,
+    `What does the head-to-head history tell us about this fixture?`,
+    `Which team has better recent form going into this match?`,
+    `Who wins and why? Give me your prediction.`,
+    `What are ${teamAName}'s biggest strengths and weaknesses?`,
+    `What are ${teamBName}'s biggest strengths and weaknesses?`,
+    `Who wins the midfield battle?`,
+  ];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function runAnalysis(userQuestion: string, isInitial = false) {
+  const runAnalysis = useCallback(async (userQuestion: string) => {
     if (isLoading) return;
     setIsLoading(true);
+    setHasStarted(true);
     setActiveTools([]);
 
-    const userMsg = isInitial
-      ? `Analyze ${teamAName} vs ${teamBName} for the World Cup`
-      : userQuestion;
-
-    if (!isInitial) {
-      setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
-    }
-
+    // Always add the question as a visible user message
+    setMessages((prev) => [...prev, { role: "user", content: userQuestion }]);
     setMessages((prev) => [
       ...prev,
       { role: "assistant", content: "", isStreaming: true, toolCalls: [] },
@@ -78,7 +98,7 @@ export default function AIScoutChat({
         body: JSON.stringify({
           teamA: teamATla,
           teamB: teamBTla,
-          question: isInitial ? "" : userQuestion,
+          question: userQuestion,
           conversationHistory,
         }),
       });
@@ -141,10 +161,20 @@ export default function AIScoutChat({
 
               const newHistory: ChatMessage[] = [
                 ...conversationHistory,
-                ...(isInitial ? [] : [{ role: "user" as const, content: userQuestion }]),
+                { role: "user" as const, content: userQuestion },
                 { role: "assistant" as const, content: assistantText },
               ];
               setConversationHistory(newHistory);
+            } else if (chunk.type === "error" && chunk.error) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  role: "assistant",
+                  content: `Scout analysis failed: ${chunk.error}`,
+                  isStreaming: false,
+                };
+                return updated;
+              });
             }
           } catch {
             // Malformed JSON chunk — skip
@@ -164,14 +194,32 @@ export default function AIScoutChat({
     } finally {
       setIsLoading(false);
       setActiveTools([]);
+      // If the last message is still marked streaming with no done event received
+      // (network drop, server crash, timeout), show a fallback instead of a
+      // permanent blinking cursor with no text.
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && last.isStreaming) {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...last,
+            isStreaming: false,
+            content: last.content.trim() ||
+              "Analysis incomplete — the stream closed unexpectedly. Please try again.",
+          };
+          return updated;
+        }
+        return prev;
+      });
     }
-  }
+  }, [isLoading, conversationHistory, teamATla, teamBTla]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     const q = input.trim();
     setInput("");
+    setHasStarted(true);
     runAnalysis(q);
   }
 
@@ -179,14 +227,67 @@ export default function AIScoutChat({
     <div className="flex flex-col h-full">
       {/* ── Message list ─────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-        {messages.length === 0 && !isLoading && (
+        {messages.length === 0 && !isLoading && !hasStarted && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-sm text-center py-8 font-['Space_Mono']"
-            style={{ color: "var(--wc-gray-400)" }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="flex flex-col gap-4 py-4"
           >
-            Loading scout analysis...
+            {/* Greeting bubble */}
+            <div className="flex gap-3">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ background: "rgba(0,255,135,0.15)" }}
+              >
+                <span className="text-xs" style={{ color: "#00ff87" }}>⚡</span>
+              </div>
+              <div
+                className="rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-[85%]"
+                style={{
+                  background: "var(--wc-gray-900)",
+                  border: "1px solid var(--wc-gray-700)",
+                  color: "var(--wc-gray-200)",
+                }}
+              >
+                I&apos;m your AI Scout for{" "}
+                <strong className="text-white">{teamAName} vs {teamBName}</strong>.
+                I have access to live squad data, recent form, and head-to-head
+                records. What do you want to know?
+              </div>
+            </div>
+
+            {/* Suggested question chips */}
+            <div className="flex flex-wrap gap-2 pl-10">
+              {SUGGESTED_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => {
+                    setHasStarted(true);
+                    setInput("");
+                    runAnalysis(q);
+                  }}
+                  className="text-xs px-3 py-2 rounded-xl text-left transition-all"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    background: "rgba(255,255,255,0.05)",
+                    color: "rgba(255,255,255,0.7)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.10)";
+                    e.currentTarget.style.borderColor = "rgba(0,255,135,0.4)";
+                    e.currentTarget.style.color = "#fff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                    e.currentTarget.style.color = "rgba(255,255,255,0.7)";
+                  }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
 
@@ -252,8 +353,12 @@ export default function AIScoutChat({
                 )}
 
                 {/* Message content */}
-                <div style={{ whiteSpace: "pre-wrap" }}>
-                  {msg.content}
+                <div className="leading-relaxed">
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(msg.content),
+                    }}
+                  />
                   {msg.isStreaming && (
                     <motion.span
                       className="inline-block w-0.5 h-4 ml-0.5 align-middle"

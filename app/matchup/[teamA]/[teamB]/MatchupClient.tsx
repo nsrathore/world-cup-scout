@@ -829,7 +829,7 @@ export default function MatchupClient({ teamA, teamB }: MatchupClientProps) {
                     teamBTla={teamB.tla}
                     teamAName={teamA.name}
                     teamBName={teamB.name}
-                    autoAnalyze={true}
+                    autoAnalyze={false}
                   />
                 </div>
               </motion.div>

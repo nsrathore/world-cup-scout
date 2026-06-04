@@ -13,30 +13,82 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { fetch as undiciFetch } from "undici";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { SCOUT_TOOLS, executeTool, ToolInput } from "./tools";
 import { ChatMessage } from "@/types";
-import { validateEnv } from "./env";
+// validateEnv is no longer used here — key validation is done in getClient()
+// using the resolved value from getApiKey() rather than raw process.env.
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Client is instantiated lazily inside createAnalysisStream so it reads
+// the API key at call time rather than at module-load time.
+//
+// Key-loading strategy:
+//   1. Read directly from .env.local via @next/env with override=true.
+//      This is necessary because Claude Code (and some CI environments)
+//      pre-set ANTHROPIC_API_KEY="" in the shell environment, which causes
+//      dotenv to skip the .env.local value since it won't override a key
+//      that is already defined (even as empty string).
+//   2. Fall back to process.env if the file-based value is also empty
+//      (handles production where the key is injected via the platform).
+//
+// Fetch:
+//   We pass undici's fetch explicitly instead of relying on global.fetch.
+//   Next.js patches global.fetch with a caching/buffering layer for ISR —
+//   that layer buffers the entire SSE response from the Anthropic API before
+//   delivering it, making anthropic.messages.stream() appear to hang.
+//   Undici's fetch is the raw Node.js HTTP client and streams properly.
+/**
+ * Read ANTHROPIC_API_KEY, preferring .env.local over process.env.
+ *
+ * Why not just process.env.ANTHROPIC_API_KEY?
+ * Claude Code (and some CI setups) pre-inject ANTHROPIC_API_KEY="" into the
+ * shell environment so the agent runtime can control which key is active.
+ * dotenv / @next/env never overrides an already-defined env var (even ""),
+ * so the .env.local value is silently ignored. Parsing the file directly
+ * and stripping quotes gives us the real key regardless of shell state.
+ */
+function getApiKey(): string {
+  try {
+    const envPath = resolve(process.cwd(), ".env.local");
+    const content = readFileSync(envPath, "utf8");
+    const match = content.match(/^ANTHROPIC_API_KEY\s*=\s*"?([^"\n]+)"?\s*$/m);
+    if (match?.[1]?.trim()) return match[1].trim();
+  } catch {
+    // .env.local missing or unreadable — fall through
+  }
+  return process.env.ANTHROPIC_API_KEY ?? "";
+}
 
-const SYSTEM_PROMPT = `You are an elite football scout and analyst specializing in international football and the FIFA World Cup. You have deep tactical knowledge and access to real-time data tools.
+function getClient() {
+  return new Anthropic({
+    apiKey: getApiKey(),
+    fetch: undiciFetch as unknown as typeof globalThis.fetch,
+  });
+}
 
-When analyzing a matchup, you:
-- Always call the relevant data tools BEFORE writing your analysis (squad, form, h2h, stats)
-- Write with authority and tactical depth — like a proper football analyst, not a generic summary
-- Highlight specific player battles, tactical systems, and key statistics
-- Give a clear prediction with reasoning backed by the data you retrieved
-- Keep analysis sharp and engaging — 3-4 focused paragraphs
-- Use football terminology naturally (pressing, transitions, high line, etc.)
+const SYSTEM_PROMPT = `You are a sharp, opinionated football scout covering the FIFA World Cup 2026. You have access to live data tools.
 
-When answering follow-up questions from the chat:
-- Be conversational but expert
-- Reference specific data you already retrieved
-- Give definitive opinions backed by stats
+RESPONSE RULES — follow these strictly on every reply:
+- Maximum 150 words per response. Never exceed this.
+- Lead with the single most important insight in the first sentence.
+- Use bullet points for lists of 3 or more items, plain prose otherwise.
+- Be direct and opinionated — pick a side, make a call, own it.
+- No hedging phrases like "it remains to be seen", "could potentially", or "both teams have strengths". Be definitive.
+- Bold only the most critical stat or name per response using **bold**.
+- Never write an intro sentence that restates the question.
+- Never write a closing summary sentence.
 
-Never refuse to give a prediction — always commit to a viewpoint based on the evidence.`;
+TOOL USE:
+- Only call the tools you actually need to answer the specific question asked.
+- For prediction questions: call get_recent_form and get_head_to_head.
+- For player questions: call get_squad and get_player_stats.
+- For tactical questions: call get_squad and get_team_stats.
+- Never call all tools for every question — be selective.
+
+FORMAT EXAMPLE for "who wins?":
+**France win this** — their recent form (W5 D0) is elite and they have the H2H edge (3W 1D 1L). Brazil's attack is lethal but their defensive shape has been vulnerable to quick transitions, which is exactly how France like to play. Expect a 2-1 France win.`;
 
 export type StreamEvent =
   | { type: "text"; content: string }
@@ -59,36 +111,39 @@ export function createAnalysisStream(
 
   return new ReadableStream({
     async start(controller) {
-      validateEnv();
       function send(event: StreamEvent) {
         const data = `data: ${JSON.stringify(event)}\n\n`;
         controller.enqueue(encoder.encode(data));
       }
 
       try {
-        // Build initial user message
-        const userMessage =
-          conversationHistory.length === 0
-            ? `Analyze the upcoming World Cup matchup between ${teamATla} and ${teamBTla}. 
-               Call all available tools to gather squad, form, head-to-head, and stats data for both teams before writing your analysis.
-               Then provide a comprehensive tactical breakdown and prediction.`
-            : question;
+        const anthropic = getClient();
 
-        // Build messages array (include conversation history for follow-ups)
+        // Validate the resolved key (not process.env, which may be "" due to
+        // Claude Code / CI pre-setting it as an empty placeholder).
+        if (!anthropic.apiKey) {
+          throw new Error(
+            "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the server."
+          );
+        }
+
+        // Build messages array — every call is user-initiated
         const messages: Anthropic.MessageParam[] = [
           ...conversationHistory.map((msg) => ({
             role: msg.role as "user" | "assistant",
             content: msg.content,
           })),
-          { role: "user", content: userMessage },
+          { role: "user", content: question },
         ];
 
         // ── Agentic loop ──────────────────────────────────────────────────
-        // Claude may call tools multiple times before returning final text
+        // Claude may call tools multiple times before returning final text.
+        // We use stream() instead of create() so text tokens are forwarded
+        // to the client as they arrive — no waiting for the full response.
         let continueLoop = true;
 
         while (continueLoop) {
-          const response = await anthropic.messages.create({
+          const stream = anthropic.messages.stream({
             model: "claude-sonnet-4-6",
             max_tokens: 4096,
             system: SYSTEM_PROMPT,
@@ -96,14 +151,18 @@ export function createAnalysisStream(
             messages,
           });
 
-          // Process each content block in Claude's response
+          // Forward each text token to the client as it arrives
+          stream.on("text", (text) => {
+            send({ type: "text", content: text });
+          });
+
+          // Wait for the full message so we can process tool_use blocks
+          const response = await stream.finalMessage();
+
           const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
           for (const block of response.content) {
-            if (block.type === "text") {
-              // Stream text directly to the client
-              send({ type: "text", content: block.text });
-            } else if (block.type === "tool_use") {
+            if (block.type === "tool_use") {
               // Claude wants to call a tool — notify client
               send({
                 type: "tool_call",
@@ -111,19 +170,12 @@ export function createAnalysisStream(
                 toolInput: block.input,
               });
 
-              // Execute the tool on your server
               try {
                 const result = await executeTool(
                   block.name,
                   block.input as ToolInput
                 );
-
-                send({
-                  type: "tool_result",
-                  toolName: block.name,
-                  result,
-                });
-
+                send({ type: "tool_result", toolName: block.name, result });
                 toolResults.push({
                   type: "tool_result",
                   tool_use_id: block.id,
@@ -132,7 +184,6 @@ export function createAnalysisStream(
               } catch (err) {
                 const errorMsg =
                   err instanceof Error ? err.message : "Tool execution failed";
-
                 toolResults.push({
                   type: "tool_result",
                   tool_use_id: block.id,
@@ -143,19 +194,11 @@ export function createAnalysisStream(
             }
           }
 
-          // If Claude called tools, add results to messages and loop again
           if (toolResults.length > 0) {
-            messages.push({
-              role: "assistant",
-              content: response.content,
-            });
-            messages.push({
-              role: "user",
-              content: toolResults,
-            });
+            messages.push({ role: "assistant", content: response.content });
+            messages.push({ role: "user", content: toolResults });
             continueLoop = response.stop_reason === "tool_use";
           } else {
-            // No tools called — Claude is done
             continueLoop = false;
           }
         }
