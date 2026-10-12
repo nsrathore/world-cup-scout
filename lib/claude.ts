@@ -1,7 +1,6 @@
 /**
  * Claude tool-use agent
  *
- * This is the core of the resume-worthy piece.
  * Pattern:
  *   1. Send user question + tool definitions to Claude
  *   2. Claude returns tool_use blocks (it decides which APIs to call)

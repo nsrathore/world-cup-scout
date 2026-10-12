@@ -17,7 +17,7 @@ import { AnalysisRequest } from "@/types";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Simple in-memory rate limiter: 5 requests per IP per minute
+// Simple in-memory rate limiter: 25 requests per IP per minute (per server instance)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 25;
 const RATE_WINDOW_MS = 60_000;
